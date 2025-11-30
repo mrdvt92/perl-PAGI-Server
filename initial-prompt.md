@@ -42,13 +42,12 @@ of truth for what needs to be built.
 ```
 
 **Requirements for feature_list.json:**
-- Minimum 200 features total with testing steps for each
+- Minimum 1 test per example application in /examples.   
 - Both "functional" and "style" categories
 - Mix of narrow tests (2-5 steps) and comprehensive tests (10+ steps)
-- At least 25 tests MUST have 10+ steps each
-- Order features by priority: fundamental features first
+- Order features by priority: fundamental features first, following the order of examples
 - ALL tests start with "passes": false
-- Cover every feature in the spec exhaustively
+- Cover every feature in the spec exhaustively.  If there are examples missing from /examples then add more steps and tests as needed.
 
 **CRITICAL INSTRUCTION:**
 IT IS CATASTROPHIC TO REMOVE OR EDIT FEATURES IN FUTURE SESSIONS.
@@ -70,7 +69,7 @@ Base the script on the technology stack specified in `app_spec.txt`.
 ### THIRD TASK: Initialize Git
 
 Create a git repository and make your first commit with:
-- feature_list.json (complete with all 200+ features)
+- feature_list.json (complete with all features)
 - init.sh (environment setup script)
 - README.md (project overview and setup instructions)
 
