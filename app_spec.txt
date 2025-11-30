@@ -1,0 +1,712 @@
+<project_specification>
+  <project_name>PAGI Reference Server - Perl Asynchronous Gateway Interface</project_name>
+
+  <overview>
+    Build a reference implementation of a PAGI-compliant HTTP server in modern Perl. The server
+    will demonstrate the full PAGI specification as defined in /docs/specs/*.mkdn, providing a
+    working example for framework and server implementors. Development follows an iterative
+    approach, starting with minimal HTTP/1.1 support and progressively adding features until all
+    example applications in /examples/* run correctly.
+
+    This is NOT a production server—it prioritizes spec compliance and code clarity over
+    performance optimization. It serves as the canonical reference for how PAGI servers
+    should behave.
+
+    Note: HTTP/2 and HTTP/3 support are out of scope for this initial implementation but the
+    architecture should isolate protocol-specific parsing to allow clean addition later.
+  </overview>
+
+  <technology_stack>
+    <runtime>
+      <perl_version>5.32+ (required for native subroutine signatures)</perl_version>
+      <pragmas>strict, warnings, experimental 'signatures'</pragmas>
+    </runtime>
+
+    <core_dependencies>
+      <async_framework>IO::Async (event loop and networking)</async_framework>
+      <futures>Future::AsyncAwait (async/await syntax)</futures>
+      <http_parsing>HTTP::Parser::XS (HTTP/1.1 parsing, isolated behind abstraction layer)</http_parsing>
+      <websocket>Protocol::WebSocket (low-level frame parsing/building, NOT Net::Async::WebSocket::Server)</websocket>
+      <tls>IO::Async::SSL (TLS termination)</tls>
+    </core_dependencies>
+
+    <design_principles>
+      All code must be fully asynchronous and event-driven:
+      - NO blocking operations anywhere in the server
+      - All I/O through IO::Async callbacks and Futures
+      - Protocol::WebSocket used for frame parsing only; connection I/O handled by our Connection.pm
+      - Clean separation: protocol parsing is synchronous on buffers, I/O is async via IO::Async
+      - Backpressure handled via Future chaining and IO::Async write buffer management
+    </design_principles>
+
+    <testing>
+      <framework>Test2::V0</framework>
+      <async_testing>Test::Future::IO::Impl</async_testing>
+      <http_client>Net::Async::HTTP (for integration tests)</http_client>
+      <websocket_client>Net::Async::WebSocket::Client</websocket_client>
+    </testing>
+
+    <distribution>
+      <build_system>Dist::Zilla</build_system>
+      <dist_ini>
+        name    = PAGI-Server
+        author  = John Napiorkowski &lt;jjnapiork@cpan.org&gt;
+        license = Perl_5
+        copyright_holder = John Napiorkowski
+        copyright_year   = 2025
+        abstract = PAGI Reference Server Implementation
+        version = 0.001
+
+        [@Basic]
+        [MetaJSON]
+
+        [MetaResources]
+        homepage = https://github.com/jjn1056/PAGI
+        bugtracker.web  = https://github.com/jjn1056/PAGI/issues
+        repository.web  = https://github.com/jjn1056/PAGI
+        repository.url  = https://github.com/jjn1056/PAGI
+        repository.type = git
+
+        [MetaNoIndex]
+        directory = examples
+
+        [Prereqs::FromCPANfile]
+      </dist_ini>
+      <cpanfile>cpanfile for dependency management</cpanfile>
+    </distribution>
+  </technology_stack>
+
+  <module_structure>
+    <namespace>PAGI::Server</namespace>
+    <layout>
+      lib/
+        PAGI/
+          Server.pm                  # Main server class (IO::Async::Notifier subclass)
+          Server/
+            Connection.pm            # Per-connection state machine
+            Protocol/
+              HTTP1.pm               # HTTP/1.1 protocol handler (isolated for future HTTP/2/3)
+            WebSocket.pm             # WebSocket protocol handler
+            SSE.pm                   # Server-Sent Events handler
+            Lifespan.pm              # Lifespan scope management
+            Scope.pm                 # Scope hashref factory
+            Extensions/
+              TLS.pm                 # TLS extension (scope->{extensions}{tls})
+              FullFlush.pm           # Flush extension
+          App/
+            WrapPSGI.pm              # PSGI-to-PAGI adapter
+      bin/
+        pagi-server                  # CLI launcher script
+      t/
+        00-load.t
+        01-hello-http.t
+        02-streaming.t
+        03-request-body.t
+        04-websocket.t
+        05-sse.t
+        06-lifespan.t
+        07-extensions.t
+        08-tls.t
+        09-psgi-bridge.t
+        lib/
+          Test/PAGI/Server.pm        # Test utilities
+    </layout>
+
+    <protocol_isolation>
+      The Protocol/ directory isolates wire-format parsing from PAGI event handling.
+      PAGI::Server::Protocol::HTTP1 handles HTTP/1.1 request parsing and response serialization.
+      Future implementations (HTTP2, HTTP3) would add parallel modules with the same interface:
+
+        - parse_request($buffer) -> ($request_info, $bytes_consumed) or undef
+        - serialize_response_start($status, \@headers) -> $bytes
+        - serialize_response_body($chunk, $more) -> $bytes
+        - serialize_trailers(\@headers) -> $bytes
+
+      This allows swapping protocol handlers without changing Connection.pm or Server.pm.
+    </protocol_isolation>
+  </module_structure>
+
+  <core_concepts>
+    <application_interface>
+      PAGI applications are async coderefs with signature:
+        async sub app ($scope, $receive, $send) { ... }
+
+      - $scope: Hashref with connection metadata (type, headers, path, etc.)
+      - $receive: Async coderef returning Future that resolves to next event
+      - $send: Async coderef taking event hashref, returning Future
+
+      The server invokes the app once per connection/request scope and manages
+      the event queue for $receive and $send.
+    </application_interface>
+
+    <event_model>
+      Events are hashrefs with 'type' key following protocol.message_type convention.
+      The server translates network I/O into events and vice versa:
+
+      Inbound (network -> app via $receive):
+        - http.request      (body chunks from client)
+        - http.disconnect   (client closed connection)
+        - websocket.connect (handshake request)
+        - websocket.receive (incoming frame)
+        - websocket.disconnect
+        - sse.disconnect
+        - lifespan.startup
+        - lifespan.shutdown
+
+      Outbound (app -> network via $send):
+        - http.response.start   (status + headers)
+        - http.response.body    (body chunks)
+        - http.response.trailers
+        - websocket.accept
+        - websocket.send
+        - websocket.close
+        - sse.start
+        - sse.send
+        - lifespan.startup.complete / lifespan.startup.failed
+        - lifespan.shutdown.complete / lifespan.shutdown.failed
+    </event_model>
+
+    <scope_types>
+      - http: One scope per HTTP request (short-lived)
+      - websocket: One scope per WebSocket connection (long-lived)
+      - sse: One scope per SSE stream (long-lived)
+      - lifespan: One scope per server/worker lifetime
+    </scope_types>
+
+    <backpressure>
+      Both $receive and $send return Futures to enable backpressure:
+      - $send->(...) returns Future that completes when safe to send more
+      - $receive->() returns Future that completes when event available
+      Server must respect TCP backpressure via IO::Async write buffers.
+    </backpressure>
+  </core_concepts>
+
+  <cli_interface>
+    <command>pagi-server</command>
+    <options>
+      --app, -a       Path to .pl file returning PAGI app coderef (required)
+      --host, -h      Bind address (default: 127.0.0.1)
+      --port, -p      Bind port (default: 5000)
+      --workers, -w   Number of worker processes (default: 1, single-process)
+      --ssl-cert      Path to SSL certificate (enables HTTPS)
+      --ssl-key       Path to SSL private key
+      --access-log    Path to access log file (default: STDERR)
+      --quiet, -q     Suppress startup banner
+      --help          Show usage
+    </options>
+    <usage>
+      pagi-server --app examples/01-hello-http/app.pl --port 8080
+      pagi-server -a myapp.pl -p 3000 --ssl-cert cert.pem --ssl-key key.pem
+    </usage>
+    <notes>
+      Multi-worker support (--workers > 1) will be added in a later implementation step.
+      Initial implementation is single-process only.
+    </notes>
+  </cli_interface>
+
+  <server_class_interface>
+    <constructor>
+      PAGI::Server->new(
+        app          => \&app,           # Required: PAGI application coderef
+        host         => '127.0.0.1',     # Bind address
+        port         => 5000,            # Bind port
+        ssl          => {                # Optional TLS config
+          cert_file  => 'cert.pem',
+          key_file   => 'key.pem',
+        },
+        extensions   => {                # Advertised extensions
+          fullflush  => {},
+          tls        => {},              # Auto-enabled when ssl configured
+        },
+        on_error     => sub ($error) {}, # Error callback
+        access_log   => \*STDERR,        # Access log filehandle
+      );
+    </constructor>
+
+    <methods>
+      $server->listen()         # Returns Future, starts accepting connections
+      $server->shutdown()       # Graceful shutdown, returns Future
+      $server->port()           # Returns bound port (useful with port => 0)
+      $server->is_running()     # Boolean
+    </methods>
+  </server_class_interface>
+
+  <http_scope_format>
+    Per docs/specs/www.mkdn, HTTP scope contains:
+    {
+      type         => 'http',
+      pagi         => { version => '0.1', spec_version => '0.1', features => {...} },
+      http_version => '1.1',              # or '1.0' (HTTP/2 out of scope for v0.1)
+      method       => 'GET',              # uppercase
+      scheme       => 'http',             # or 'https'
+      path         => '/foo/bar',         # decoded
+      raw_path     => '/foo%2Fbar',       # original bytes (optional)
+      query_string => 'a=1&b=2',          # raw bytes after ?
+      root_path    => '',                 # SCRIPT_NAME equivalent
+      headers      => [                   # arrayref of [name, value] pairs
+        ['host', 'localhost:5000'],
+        ['content-type', 'application/json'],
+      ],
+      client       => ['192.168.1.1', 54321],  # [host, port] or undef
+      server       => ['localhost', 5000],     # [host, port] or undef
+      state        => {},                      # from lifespan (if supported)
+      extensions   => { ... },                 # server capabilities
+    }
+  </http_scope_format>
+
+  <development_workflow>
+    Implementation follows a strict iterative review process:
+
+    1. Implement one step at a time (steps correspond to example applications)
+    2. Write tests that verify the target example runs correctly
+    3. Ensure all acceptance criteria for the step are met
+    4. STOP and wait for review before proceeding to next step
+    5. Address any feedback or corrections from review
+    6. Only after approval, proceed to the next step
+
+    This ensures each layer is solid before building on top of it.
+    Each step should result in a working server that passes its target example's tests.
+  </development_workflow>
+
+  <implementation_steps>
+    <step number="1">
+      <title>Project Bootstrap and Basic HTTP Server</title>
+      <target_example>01-hello-http</target_example>
+      <spec_references>
+        - docs/specs/main.mkdn (Application interface, scope, events)
+        - docs/specs/www.mkdn (HTTP scope, response events)
+      </spec_references>
+      <tasks>
+        - Initialize project structure with cpanfile, dist.ini
+        - Create PAGI::Server as IO::Async::Notifier subclass
+        - Create PAGI::Server::Protocol::HTTP1 for isolated HTTP/1.1 parsing
+        - Implement TCP listener with IO::Async::Listener
+        - Parse HTTP/1.1 requests (method, path, headers) via Protocol::HTTP1
+        - Build HTTP scope hashref per specification
+        - Implement $receive queue (single http.request event with body)
+        - Implement $send handler for http.response.start and http.response.body
+        - Serialize HTTP response to wire format via Protocol::HTTP1
+        - Create bin/pagi-server launcher
+        - Write t/01-hello-http.t integration test
+      </tasks>
+      <acceptance_criteria>
+        - examples/01-hello-http/app.pl runs and responds to curl
+        - Scope contains all required keys per spec
+        - Response headers and body transmitted correctly
+        - App exceptions result in 500 response
+      </acceptance_criteria>
+    </step>
+
+    <step number="2">
+      <title>Streaming Responses and Disconnect Handling</title>
+      <target_example>02-streaming-response</target_example>
+      <spec_references>
+        - docs/specs/www.mkdn (chunked encoding, trailers, disconnect)
+        - docs/specs/main.mkdn (cancellation semantics)
+      </spec_references>
+      <tasks>
+        - Support multiple http.response.body events with more => 1
+        - Implement chunked Transfer-Encoding for streaming
+        - Add http.response.trailers event support
+        - Detect client disconnect and inject http.disconnect event
+        - Cancel app Future when client disconnects
+        - Handle $send after disconnect gracefully (no-op or error)
+        - Implement proper Connection: keep-alive / close handling
+      </tasks>
+      <acceptance_criteria>
+        - examples/02-streaming-response/app.pl streams chunks correctly
+        - Trailers appear in HTTP response when advertised
+        - Client disconnect stops the app promptly
+        - No resource leaks on disconnect
+      </acceptance_criteria>
+    </step>
+
+    <step number="3">
+      <title>Request Body Handling</title>
+      <target_example>03-request-body</target_example>
+      <spec_references>
+        - docs/specs/www.mkdn (http.request event, body, more flag)
+      </spec_references>
+      <tasks>
+        - Parse Content-Length header for fixed-length bodies
+        - Support chunked Transfer-Encoding on requests
+        - Emit multiple http.request events for large bodies
+        - Set more => 1 for intermediate chunks, more => 0 for final
+        - Handle requests with no body (GET, HEAD, etc.)
+        - Implement body size limits (configurable)
+        - De-chunk request bodies before passing to app
+      </tasks>
+      <acceptance_criteria>
+        - examples/03-request-body/app.pl echoes POST bodies correctly
+        - Large bodies arrive as multiple events
+        - Chunked requests work correctly
+        - GET requests receive single http.request with empty body
+      </acceptance_criteria>
+    </step>
+
+    <step number="4">
+      <title>WebSocket Support</title>
+      <target_example>04-websocket-echo</target_example>
+      <spec_references>
+        - docs/specs/www.mkdn (WebSocket scope and events)
+      </spec_references>
+      <architecture_notes>
+        WebSocket starts as HTTP upgrade, so our Connection.pm handles the initial HTTP request,
+        detects the upgrade, then transitions to WebSocket mode. Protocol::WebSocket is used ONLY
+        for frame parsing/building on buffers—all actual I/O remains in Connection.pm via IO::Async.
+
+        Flow:
+        1. Connection.pm receives HTTP request with Upgrade: websocket
+        2. Protocol::HTTP1 parses headers, Connection.pm detects upgrade
+        3. Connection.pm creates websocket scope, emits websocket.connect
+        4. App sends websocket.accept -> Connection.pm uses Protocol::WebSocket::Handshake to build response
+        5. Connection.pm switches to WebSocket mode, uses Protocol::WebSocket::Frame for parsing/building
+        6. All frame I/O is event-driven through IO::Async on_read callbacks
+      </architecture_notes>
+      <tasks>
+        - Detect WebSocket upgrade requests (Upgrade: websocket header)
+        - Create websocket scope with subprotocols parsed from Sec-WebSocket-Protocol header
+        - Emit websocket.connect event and wait for app response
+        - Handle websocket.accept: use Protocol::WebSocket::Handshake to build 101 response
+        - Handle websocket.close before accept: reject with HTTP 403
+        - Use Protocol::WebSocket::Frame for frame parsing (on_read callback, non-blocking)
+        - Use Protocol::WebSocket::Frame for frame building (write to IO::Async stream)
+        - Emit websocket.receive with text or bytes (exactly one must be set per spec)
+        - Handle websocket.send (text/bytes) from app
+        - Handle websocket.close from app (send close frame, await close from client)
+        - Detect client close frame and emit websocket.disconnect with code/reason
+        - Handle PING frames: automatically respond with PONG (transparent to app)
+        - Manage frame fragmentation: reassemble before emitting to app
+      </tasks>
+      <acceptance_criteria>
+        - examples/04-websocket-echo/app.pl echoes WebSocket messages
+        - Handshake completes with correct Sec-WebSocket-Accept
+        - Text and binary frames both work
+        - Clean close handshake works
+        - Subprotocol negotiation works
+        - No blocking anywhere in WebSocket handling
+      </acceptance_criteria>
+    </step>
+
+    <step number="5">
+      <title>Server-Sent Events (SSE)</title>
+      <target_example>05-sse-broadcaster</target_example>
+      <spec_references>
+        - docs/specs/www.mkdn (SSE scope and events)
+      </spec_references>
+      <tasks>
+        - Detect SSE requests (GET + Accept: text/event-stream)
+        - Create sse scope (reuses HTTP scope structure with type => 'sse')
+        - Handle sse.start event (like http.response.start)
+        - Automatically add Content-Type: text/event-stream header
+        - Handle sse.send events, format as SSE wire protocol:
+          - event: field (optional)
+          - data: field (required, multi-line support)
+          - id: field (optional)
+          - retry: field (optional)
+        - Detect client disconnect, emit sse.disconnect
+        - Keep connection open until app returns
+      </tasks>
+      <acceptance_criteria>
+        - examples/05-sse-broadcaster/app.pl streams events to curl/browser
+        - EventSource API in browsers works correctly
+        - Multi-line data fields formatted correctly
+        - Disconnect detected promptly
+      </acceptance_criteria>
+    </step>
+
+    <step number="6">
+      <title>Lifespan Protocol and Shared State</title>
+      <target_example>06-lifespan-state</target_example>
+      <spec_references>
+        - docs/specs/lifespan.mkdn (lifespan scope and events)
+        - docs/specs/main.mkdn (state sharing)
+      </spec_references>
+      <tasks>
+        - Create lifespan scope on server startup
+        - Emit lifespan.startup event before accepting connections
+        - Wait for lifespan.startup.complete before listening
+        - Handle lifespan.startup.failed (log and exit)
+        - Store state hashref from lifespan scope
+        - Shallow-copy state into each request scope
+        - On shutdown signal (SIGTERM/SIGINT), emit lifespan.shutdown
+        - Wait for lifespan.shutdown.complete before exit
+        - Handle lifespan.shutdown.failed (log and terminate)
+      </tasks>
+      <acceptance_criteria>
+        - examples/06-lifespan-state/app.pl initializes and shares state
+        - HTTP requests see state from lifespan
+        - Graceful shutdown waits for cleanup
+        - Failed startup prevents connection acceptance
+      </acceptance_criteria>
+    </step>
+
+    <step number="7">
+      <title>Extensions Framework (fullflush)</title>
+      <target_example>07-extension-fullflush</target_example>
+      <spec_references>
+        - docs/specs/main.mkdn (extensions section)
+        - docs/extensions.mkdn (fullflush example)
+      </spec_references>
+      <tasks>
+        - Add extensions hashref to scope
+        - Implement fullflush extension:
+          - Advertise in scope->{extensions}{fullflush}
+          - Handle http.fullflush event from app
+          - Immediately flush TCP write buffer
+        - Reject unknown extension events with error
+        - Document extension registration API for future extensions
+      </tasks>
+      <acceptance_criteria>
+        - examples/07-extension-fullflush/app.pl flushes correctly
+        - Extension only works when advertised
+        - Unknown events rejected appropriately
+      </acceptance_criteria>
+    </step>
+
+    <step number="8">
+      <title>TLS Support and Extension</title>
+      <target_example>08-tls-introspection</target_example>
+      <spec_references>
+        - docs/specs/tls.mkdn (TLS extension specification)
+      </spec_references>
+      <tasks>
+        - Integrate IO::Async::SSL for TLS termination
+        - Auto-detect TLS vs plaintext connections
+        - Populate scope->{extensions}{tls} for TLS connections:
+          - server_cert (PEM string or undef)
+          - client_cert_chain (arrayref of PEM strings)
+          - client_cert_name (RFC4514 DN or undef)
+          - client_cert_error (string or undef)
+          - tls_version (integer: 0x0303 for TLS 1.2, etc.)
+          - cipher_suite (integer)
+        - Set scheme => 'https' or 'wss' for TLS connections
+        - Support optional client certificate verification
+        - Omit tls extension entirely for non-TLS connections
+      </tasks>
+      <acceptance_criteria>
+        - examples/08-tls-introspection/app.pl reports TLS info
+        - HTTPS requests show correct scheme and extension
+        - Client certificates captured when provided
+        - Non-TLS connections have no tls extension
+      </acceptance_criteria>
+    </step>
+
+    <step number="9">
+      <title>PSGI Compatibility Bridge</title>
+      <target_example>09-psgi-bridge</target_example>
+      <spec_references>
+        - docs/specs/www.mkdn (PSGI compatibility section)
+      </spec_references>
+      <tasks>
+        - Create PAGI::App::WrapPSGI adapter module
+        - Convert PAGI scope to PSGI %env hash:
+          - REQUEST_METHOD, SCRIPT_NAME, PATH_INFO, QUERY_STRING
+          - CONTENT_TYPE, CONTENT_LENGTH
+          - SERVER_NAME, SERVER_PORT, SERVER_PROTOCOL
+          - REMOTE_ADDR, REMOTE_PORT
+          - HTTP_* headers
+          - psgi.* keys (version, url_scheme, input, errors, etc.)
+        - Collect http.request events into psgi.input filehandle
+        - Run PSGI app (synchronously or in thread pool)
+        - Convert PSGI response to http.response.* events
+        - Support streaming PSGI responses (coderef body)
+        - Handle PSGI delayed response pattern
+      </tasks>
+      <acceptance_criteria>
+        - examples/09-psgi-bridge/app.pl runs legacy PSGI apps
+        - All PSGI env keys populated correctly
+        - Streaming PSGI bodies work
+        - psgi.input contains full request body
+      </acceptance_criteria>
+    </step>
+
+    <step number="10">
+      <title>HTTP/1.1 Compliance and Edge Cases</title>
+      <target_example>All examples</target_example>
+      <spec_references>
+        - docs/specs/www.mkdn (Cookie normalization, header handling)
+        - RFC 7230, RFC 7231
+      </spec_references>
+      <tasks>
+        - Normalize multiple Cookie headers into single header
+        - Handle HTTP/1.0 clients (no chunked encoding)
+        - Implement HEAD request handling (no body in response)
+        - Support HTTP pipelining (multiple requests per connection)
+        - Handle Expect: 100-continue
+        - Validate Content-Length matches actual body
+        - Reject malformed requests with 400 Bad Request
+        - Add Date header to responses
+        - Implement connection timeout handling
+        - Add configurable max header size
+        - Add configurable max request body size
+      </tasks>
+      <acceptance_criteria>
+        - All examples pass with various HTTP clients
+        - Edge cases handled per RFCs
+        - Malformed requests rejected appropriately
+        - Timeouts prevent resource exhaustion
+      </acceptance_criteria>
+    </step>
+
+    <step number="11">
+      <title>Multi-Worker Support</title>
+      <target_example>All examples</target_example>
+      <spec_references>
+        - docs/specs/lifespan.mkdn (per-worker lifespan events)
+      </spec_references>
+      <tasks>
+        - Implement pre-fork worker model
+        - Parent process binds socket, forks workers
+        - Each worker runs own event loop and lifespan
+        - Handle worker crashes with automatic restart
+        - Implement graceful worker shutdown on SIGTERM
+        - Support --workers CLI option
+        - Ensure lifespan events fire per-worker (not just parent)
+        - Handle SIGHUP for graceful reload (optional)
+      </tasks>
+      <acceptance_criteria>
+        - Server runs with multiple workers
+        - Each worker handles requests independently
+        - Lifespan startup/shutdown runs in each worker
+        - Graceful shutdown waits for all workers
+        - Worker crash doesn't bring down server
+      </acceptance_criteria>
+    </step>
+
+    <step number="12">
+      <title>Documentation and Polish</title>
+      <target_example>N/A</target_example>
+      <tasks>
+        - Write POD documentation for all public modules
+        - Document server configuration options
+        - Add SYNOPSIS examples to each module
+        - Create CONTRIBUTING.md with development setup
+        - Add benchmarking scripts (not for optimization, for baseline)
+        - Ensure all tests pass with prove -l t/
+        - Review spec compliance checklist
+        - Tag v0.1 release
+      </tasks>
+      <acceptance_criteria>
+        - All public APIs documented
+        - Examples in POD are runnable
+        - Test suite passes cleanly
+        - dzil build succeeds
+        - dzil test passes
+      </acceptance_criteria>
+    </step>
+  </implementation_steps>
+
+  <testing_strategy>
+    <unit_tests>
+      - Test HTTP/1.1 parser with known-good and malformed inputs
+      - Test scope builder produces correct structures
+      - Test event serialization (http.response.* -> wire format)
+      - Test WebSocket frame encoding/decoding
+      - Test SSE event formatting
+    </unit_tests>
+
+    <integration_tests>
+      - Each example app has corresponding t/0N-*.t test file
+      - Tests start server, make requests, verify responses
+      - Use Net::Async::HTTP for HTTP client
+      - Use Net::Async::WebSocket::Client for WebSocket tests
+      - Test disconnect behavior with abrupt client close
+      - Test concurrent requests
+      - Test keep-alive connection reuse
+    </integration_tests>
+
+    <compliance_tests>
+      - Verify all scope keys present per spec
+      - Verify event types match spec exactly
+      - Test extension advertisement and usage
+      - Test error handling matches spec requirements
+    </compliance_tests>
+  </testing_strategy>
+
+  <error_handling>
+    <application_errors>
+      - Exceptions in app result in 500 Internal Server Error
+      - Log exception with stack trace
+      - Close connection cleanly after error response
+      - For WebSocket/SSE, close connection without response
+    </application_errors>
+
+    <protocol_errors>
+      - Malformed HTTP -> 400 Bad Request
+      - Unknown scope type -> app must throw (per spec)
+      - Invalid event from app -> log warning, ignore or close
+      - $send after disconnect -> no-op (per spec)
+    </protocol_errors>
+
+    <resource_limits>
+      - Max header size exceeded -> 431 Request Header Fields Too Large
+      - Max body size exceeded -> 413 Payload Too Large
+      - Connection timeout -> close silently
+      - Too many concurrent connections -> 503 Service Unavailable (optional)
+    </resource_limits>
+  </error_handling>
+
+  <configuration>
+    <server_options>
+      host              => '127.0.0.1'     # Bind address
+      port              => 5000            # Bind port
+      backlog           => 128             # Listen backlog
+      max_connections   => 1000            # Max concurrent connections
+      timeout           => 60              # Request timeout (seconds)
+      max_header_size   => 8192            # Max headers (bytes)
+      max_body_size     => 10485760        # Max body (10MB default)
+      keep_alive        => 1               # Enable keep-alive
+      keep_alive_timeout => 5              # Keep-alive timeout (seconds)
+    </server_options>
+
+    <tls_options>
+      ssl => {
+        cert_file       => 'cert.pem'      # Server certificate
+        key_file        => 'key.pem'       # Private key
+        ca_file         => 'ca.pem'        # CA for client verification (optional)
+        verify_client   => 0               # Require client certificate
+      }
+    </tls_options>
+
+    <extension_options>
+      extensions => {
+        fullflush => {}                    # Enable fullflush extension
+      }
+    </extension_options>
+  </configuration>
+
+  <success_criteria>
+    <spec_compliance>
+      - All scope keys match docs/specs/main.mkdn
+      - All event types match docs/specs/www.mkdn
+      - Lifespan protocol matches docs/specs/lifespan.mkdn
+      - TLS extension matches docs/specs/tls.mkdn
+      - Cookie normalization per spec
+      - Header casing per spec (lowercase)
+    </spec_compliance>
+
+    <example_compatibility>
+      - All 9 example apps in examples/ run correctly
+      - Each example has passing integration test
+      - Examples work with standard HTTP clients (curl, browser, wget)
+      - WebSocket examples work with browser WebSocket API
+    </example_compatibility>
+
+    <code_quality>
+      - Modern Perl style (signatures, async/await)
+      - Clear separation of concerns (parsing, scope building, event handling)
+      - Protocol parsing isolated in PAGI::Server::Protocol::* for future HTTP/2/3
+      - Comprehensive POD documentation
+      - No circular dependencies
+      - Predictable resource cleanup (no leaks)
+    </code_quality>
+
+    <developer_experience>
+      - Simple installation via cpanm or dzil install
+      - Clear error messages for app developers
+      - Helpful debug logging (optional)
+      - Example-driven documentation
+    </developer_experience>
+  </success_criteria>
+</project_specification>
