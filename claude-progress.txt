@@ -1,5 +1,54 @@
 # PAGI Reference Server - Development Progress
 
+## Session 6: Fix Async Future Warnings (2024-11-30)
+
+### Issue Analyzed
+
+User reported "Suspended async sub lost its returning future" warnings when running streaming example:
+```
+./bin/pagi-server --app examples/02-streaming-response/app.pl
+PAGI Server listening on http://127.0.0.1:5000/
+Suspended async sub PAGI::Server::Connection::_handle_request lost its returning future at lib/PAGI/Server/Connection.pm line 124.
+Suspended async sub CODE(0x7fb6f3238850) in package PAGI::Server::Connection lost its returning future at lib/PAGI/Server/Connection.pm line 213.
+```
+
+### Root Causes Identified
+
+1. **`_handle_request` Future not tracked**: The async `_handle_request` was called without storing its returned Future. When the Connection object was garbage collected, the pending Future caused the warning.
+
+2. **Orphaned `$receive->()` Futures**: When apps call `$receive->()` to monitor for disconnect, the returned Future could be orphaned when the app finishes successfully before disconnect occurs. The async sub inside `_create_receive` was left awaiting `$receive_pending`.
+
+### Fixes Applied
+
+1. **Track `_handle_request` Future**: Store in `request_future` field and call `->retain` to prevent GC during processing.
+
+2. **Track receive Futures**:
+   - Added `receive_futures` array to track all Futures returned by `$receive->()`
+   - Changed `_create_receive` to return a regular sub wrapper that tracks Futures
+   - In `_close()`, complete all pending receive Futures with disconnect event
+
+### Test Results
+
+All tests pass with no warnings:
+```
+prove -l t/
+All tests successful.
+Files=10, Tests=23
+```
+
+Manual testing with streaming example:
+- No warnings on request completion
+- Multiple requests work correctly
+- Clean shutdown
+
+### Git Commit
+
+```
+d1b67f5 Fix "Suspended async sub lost its returning future" warnings
+```
+
+---
+
 ## Session 5: Step 3 - Request Body Handling (2024-11-30)
 
 ### Completed Tasks
