@@ -587,7 +587,7 @@
       "Step 3: Verify port() method returns correct port",
       "Step 4: Verify is_running() returns false before listen()"
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "functional",
@@ -599,7 +599,7 @@
       "Step 4: Verify is_running() returns true",
       "Step 5: Verify server accepts connections"
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "functional",
@@ -612,7 +612,7 @@
       "Step 5: Verify server stops accepting new connections",
       "Step 6: Verify is_running() returns false after shutdown completes"
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "functional",
@@ -623,7 +623,7 @@
       "Step 3: Verify bytes_consumed is returned",
       "Step 4: Verify incomplete request returns undef"
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "functional",
@@ -634,7 +634,7 @@
       "Step 3: Verify headers are formatted correctly",
       "Step 4: Call serialize_response_body() and verify chunk formatting"
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "functional",
@@ -772,7 +772,7 @@
       "Step 2: Verify scope.headers contains lowercase header names",
       "Step 3: Verify response headers use lowercase names"
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "style",
@@ -824,7 +824,7 @@
       "Step 2: Verify scope.path contains decoded '/path with spaces'",
       "Step 3: Verify scope.raw_path contains original '/path%20with%20spaces'"
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "functional",
