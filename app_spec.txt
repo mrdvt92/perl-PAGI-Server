@@ -95,6 +95,91 @@
               FullFlush.pm           # Flush extension
           App/
             WrapPSGI.pm              # PSGI-to-PAGI adapter
+            # Tier 1 - Essential Applications
+            File.pm                  # Static file serving
+            Directory.pm             # Directory listing
+            URLMap.pm                # Mount apps at paths
+            Cascade.pm               # Try apps in sequence
+            Router.pm                # URL pattern routing
+            NotFound.pm              # 404 handler
+            Redirect.pm              # URL redirects
+            # Tier 2 - Recommended Applications
+            Proxy.pm                 # HTTP reverse proxy
+            WrapCGI.pm               # CGI script wrapper
+            CGIBin.pm                # CGI directory
+            Healthcheck.pm           # Health check endpoint
+            Test.pm                  # Test harness
+            Loader.pm                # App loading/reloading
+            # Protocol-Specific Applications
+            WebSocket/
+              Echo.pm                # Echo server
+              Chat.pm                # Multi-room chat
+              Broadcast.pm           # Pub/sub broadcast
+            SSE/
+              Stream.pm              # Event streaming
+              Pubsub.pm              # Pub/sub events
+            # Tier 3 - Optional Applications
+            Debug.pm                 # Debug panel
+            Throttle.pm              # Request throttling
+            Combine.pm               # Custom routing
+          Middleware.pm              # Base class and builder DSL
+          Middleware/
+            # Tier 1 - Essential
+            Static.pm                # Static file serving
+            ErrorHandler.pm          # Exception handling and error pages
+            ContentLength.pm         # Auto Content-Length header
+            Head.pm                  # HEAD request handling
+            CORS.pm                  # Cross-Origin Resource Sharing
+            SecurityHeaders.pm       # Security HTTP headers
+            GZip.pm                  # Response compression
+            AccessLog.pm             # Request logging
+            # Tier 2 - Recommended
+            CSRF.pm                  # CSRF token protection
+            TrustedHosts.pm          # Host header validation
+            HTTPSRedirect.pm         # Force HTTPS
+            RateLimit.pm             # Request rate limiting
+            RateLimit/
+              Store.pm               # Store interface
+              Store/
+                Memory.pm            # In-memory store
+                Redis.pm             # Redis store (optional)
+            ETag.pm                  # Cache validation
+            ConditionalGet.pm        # 304 responses
+            RequestId.pm             # Request tracing
+            Runtime.pm               # X-Runtime header
+            ContentNegotiation.pm    # Accept header handling
+            JSONBody.pm              # JSON request parsing
+            FormBody.pm              # Form data parsing
+            Session.pm               # Cookie sessions
+            Session/
+              Store.pm               # Store interface
+              Store/
+                Cookie.pm            # Cookie-based (signed)
+                Memory.pm            # In-memory
+                File.pm              # File-based
+            Cookie.pm                # Cookie parsing/setting
+            Auth/
+              Basic.pm               # HTTP Basic auth
+              Bearer.pm              # JWT/Bearer token auth
+            Rewrite.pm               # URL rewriting
+            Timeout.pm               # Request timeout
+            ReverseProxy.pm          # X-Forwarded-* handling
+            Healthcheck.pm           # Health check endpoint
+            # Tier 2 - Protocol-Specific
+            WebSocket/
+              Heartbeat.pm           # WebSocket ping/pong
+            SSE/
+              Retry.pm               # SSE reconnection
+              Heartbeat.pm           # SSE keepalive
+            # Tier 3 - Optional
+            MethodOverride.pm        # HTTP method override
+            ResponseCache.pm         # Response caching
+            Debug.pm                 # Debug panel (dev only)
+            Lint.pm                  # PAGI spec validation
+            Maintenance.pm           # Maintenance mode
+            WebSocket/
+              Compression.pm         # WebSocket compression
+              RateLimit.pm           # WebSocket message rate limiting
       bin/
         pagi-server                  # CLI launcher script
       t/
@@ -108,6 +193,68 @@
         07-extensions.t
         08-tls.t
         09-psgi-bridge.t
+        10-static-files.t
+        middleware/
+          00-base.t                  # Middleware infrastructure tests
+          01-content-length.t
+          02-head.t
+          03-error-handler.t
+          04-static.t
+          05-access-log.t
+          06-request-id.t
+          07-runtime.t
+          08-cors.t
+          09-security-headers.t
+          10-trusted-hosts.t
+          11-csrf.t
+          12-gzip.t
+          13-etag.t
+          14-conditional-get.t
+          15-rate-limit.t
+          16-timeout.t
+          17-json-body.t
+          18-form-body.t
+          19-content-negotiation.t
+          20-cookie.t
+          21-session.t
+          22-auth-basic.t
+          23-auth-bearer.t
+          24-rewrite.t
+          25-https-redirect.t
+          26-reverse-proxy.t
+          27-healthcheck.t
+          28-websocket-heartbeat.t
+          29-sse-retry.t
+          30-sse-heartbeat.t
+          31-debug.t
+          32-lint.t
+          33-maintenance.t
+          34-method-override.t
+          35-response-cache.t
+          36-websocket-compression.t
+          37-websocket-rate-limit.t
+        app/
+          00-file.t                  # Static file serving
+          01-directory.t             # Directory listing
+          02-urlmap.t                # URL mapping
+          03-cascade.t               # App cascade
+          04-router.t                # URL routing
+          05-notfound.t              # 404 handler
+          06-redirect.t              # URL redirects
+          07-proxy.t                 # HTTP proxy
+          08-wrapcgi.t               # CGI wrapper
+          09-cgibin.t                # CGI directory
+          10-healthcheck.t           # Health checks
+          11-test.t                  # Test harness
+          12-loader.t                # App loader
+          13-websocket-echo.t        # WebSocket echo
+          14-websocket-chat.t        # WebSocket chat
+          15-websocket-broadcast.t   # WebSocket broadcast
+          16-sse-stream.t            # SSE streaming
+          17-sse-pubsub.t            # SSE pub/sub
+          18-debug.t                 # Debug panel
+          19-throttle.t              # Request throttling
+          20-combine.t               # Custom routing
         lib/
           Test/PAGI/Server.pm        # Test utilities
     </layout>
@@ -595,6 +742,871 @@
         - dzil test passes
       </acceptance_criteria>
     </step>
+
+    <!-- ============================================================
+         MIDDLEWARE IMPLEMENTATION STEPS (Steps 13-22)
+
+         These steps implement the middleware ecosystem defined in
+         MIDDLEWARE.md, progressing from foundational infrastructure
+         through essential, recommended, and optional middleware.
+         ============================================================ -->
+
+    <step number="13">
+      <title>Middleware Base Infrastructure</title>
+      <target_example>N/A (infrastructure)</target_example>
+      <spec_references>
+        - MIDDLEWARE.md (Middleware Architecture Pattern section)
+      </spec_references>
+      <tasks>
+        - Create PAGI::Middleware base class with:
+          - new() constructor accepting configuration hashref
+          - wrap($app) method returning wrapped async sub
+          - Helper methods for common patterns (modify_scope, intercept_send)
+        - Implement builder DSL for middleware composition:
+          - enable('MiddlewareName', %config) syntax
+          - enable_if { condition } 'MiddlewareName', %config
+          - mount('/path', $subapp) for path-based routing
+          - Builder->new->enable(...)->to_app($app)
+        - Add middleware ordering support (before/after dependencies)
+        - Create helper for response interception (wrap $send)
+        - Create helper for request body buffering
+        - Write t/middleware/00-base.t testing infrastructure
+      </tasks>
+      <acceptance_criteria>
+        - PAGI::Middleware->wrap($app) returns valid PAGI app
+        - Builder DSL composes multiple middleware correctly
+        - Middleware can modify scope without mutating original
+        - Middleware can intercept and modify responses
+        - enable_if conditionally applies middleware
+        - Comprehensive tests for base functionality
+      </acceptance_criteria>
+    </step>
+
+    <step number="14">
+      <title>Core HTTP Middleware (Tier 1)</title>
+      <target_example>All HTTP examples</target_example>
+      <spec_references>
+        - MIDDLEWARE.md (ContentLength, Head, ErrorHandler)
+        - docs/specs/www.mkdn (HTTP response events)
+      </spec_references>
+      <tasks>
+        - Implement PAGI::Middleware::ContentLength:
+          - Buffer response body when Content-Length missing
+          - Calculate and inject Content-Length header
+          - Skip for chunked responses and SSE
+          - Support auto_chunked config option
+        - Implement PAGI::Middleware::Head:
+          - Detect HEAD requests from scope
+          - Allow response.start, suppress response.body
+          - Preserve Content-Length from original response
+        - Implement PAGI::Middleware::ErrorHandler:
+          - Wrap app in eval/try-catch
+          - Map exceptions to HTTP status codes
+          - Support custom error templates (html, json, text)
+          - Add on_error callback for logging
+          - Include stack trace in development mode
+        - Write t/middleware/01-content-length.t
+        - Write t/middleware/02-head.t
+        - Write t/middleware/03-error-handler.t
+      </tasks>
+      <acceptance_criteria>
+        - ContentLength adds accurate header for buffered responses
+        - HEAD requests return headers without body
+        - Exceptions result in proper error responses
+        - Error templates are customizable
+        - Stack traces shown in development mode only
+        - All tests pass
+      </acceptance_criteria>
+    </step>
+
+    <step number="15">
+      <title>Static File Serving (Tier 1)</title>
+      <target_example>Static file example</target_example>
+      <spec_references>
+        - MIDDLEWARE.md (Static middleware)
+      </spec_references>
+      <tasks>
+        - Implement PAGI::Middleware::Static:
+          - Serve files from configured root directory
+          - Path traversal prevention (no ../ escaping root)
+          - MIME type detection (use MIME::Types or built-in map)
+          - Support index files (index.html, index.htm)
+          - Support pass_through to fall back to app
+          - Generate ETag from file mtime + size
+          - Support If-None-Match for 304 responses
+          - Handle Range requests for partial content (206)
+          - Support encoding (gzip pre-compressed files .gz)
+        - Create examples/10-static-files/ example app
+        - Write t/middleware/04-static.t with:
+          - Basic file serving tests
+          - Path traversal attack prevention
+          - 304 Not Modified tests
+          - Range request tests
+          - Missing file 404 tests
+      </tasks>
+      <acceptance_criteria>
+        - Static files served with correct MIME types
+        - Path traversal attempts blocked (return 403 or 404)
+        - ETag-based caching works correctly
+        - Range requests return 206 Partial Content
+        - pass_through falls back to app for non-files
+        - Index files served for directory requests
+      </acceptance_criteria>
+    </step>
+
+    <step number="16">
+      <title>Request Logging Middleware (Tier 1)</title>
+      <target_example>All examples</target_example>
+      <spec_references>
+        - MIDDLEWARE.md (AccessLog, RequestId, Runtime)
+      </spec_references>
+      <tasks>
+        - Implement PAGI::Middleware::AccessLog:
+          - Apache combined log format by default
+          - Custom format string support
+          - Output to filehandle (STDERR by default)
+          - Log after response completes
+          - Capture response status, size, duration
+          - Support log rotation (reopen on SIGHUP)
+        - Implement PAGI::Middleware::RequestId:
+          - Generate UUID for each request
+          - Add to scope as request_id
+          - Add X-Request-ID response header
+          - Accept incoming X-Request-ID from trusted proxies
+        - Implement PAGI::Middleware::Runtime:
+          - Measure request processing time
+          - Add X-Runtime response header (milliseconds)
+          - Optional X-Runtime-Backend for backend time
+        - Write t/middleware/05-access-log.t
+        - Write t/middleware/06-request-id.t
+        - Write t/middleware/07-runtime.t
+      </tasks>
+      <acceptance_criteria>
+        - Access logs written in correct format
+        - Request IDs are unique UUIDs
+        - X-Request-ID header present in responses
+        - Runtime header shows accurate timing
+        - Log rotation works on SIGHUP
+        - All tests pass
+      </acceptance_criteria>
+    </step>
+
+    <step number="17">
+      <title>Security Middleware (Tier 1-2)</title>
+      <target_example>All examples</target_example>
+      <spec_references>
+        - MIDDLEWARE.md (CORS, SecurityHeaders, TrustedHosts, CSRF)
+      </spec_references>
+      <tasks>
+        - Implement PAGI::Middleware::CORS:
+          - Handle preflight OPTIONS requests
+          - Validate Origin header against allowed origins
+          - Support wildcard (*) and specific origins
+          - Add Access-Control-* headers
+          - Support credentials mode
+          - Configurable max_age for preflight cache
+        - Implement PAGI::Middleware::SecurityHeaders:
+          - X-Content-Type-Options: nosniff
+          - X-Frame-Options: DENY/SAMEORIGIN
+          - X-XSS-Protection header
+          - Referrer-Policy configuration
+          - Content-Security-Policy builder
+          - Strict-Transport-Security (HSTS)
+        - Implement PAGI::Middleware::TrustedHosts:
+          - Validate Host header against allowed list
+          - Support regex patterns
+          - Return 400 for invalid hosts
+        - Implement PAGI::Middleware::CSRF:
+          - Generate CSRF tokens (signed, timestamped)
+          - Validate on POST/PUT/PATCH/DELETE
+          - Support header (X-CSRF-Token) and form field
+          - Exempt specified paths (e.g., API endpoints)
+        - Write t/middleware/08-cors.t
+        - Write t/middleware/09-security-headers.t
+        - Write t/middleware/10-trusted-hosts.t
+        - Write t/middleware/11-csrf.t
+      </tasks>
+      <acceptance_criteria>
+        - CORS preflight requests handled correctly
+        - Security headers applied per configuration
+        - Invalid hosts rejected with 400
+        - CSRF tokens validated on state-changing requests
+        - Credentials mode works correctly with CORS
+        - All security middleware can be configured per-route
+      </acceptance_criteria>
+    </step>
+
+    <step number="18">
+      <title>Compression and Caching Middleware (Tier 1-2)</title>
+      <target_example>All HTTP examples</target_example>
+      <spec_references>
+        - MIDDLEWARE.md (GZip, ETag, ConditionalGet)
+      </spec_references>
+      <tasks>
+        - Implement PAGI::Middleware::GZip:
+          - Check Accept-Encoding for gzip support
+          - Compress response bodies above min_size threshold
+          - Skip already-compressed content types
+          - Set Content-Encoding: gzip header
+          - Adjust Content-Length after compression
+          - Support streaming compression for chunked responses
+        - Implement PAGI::Middleware::ETag:
+          - Generate ETag from response body (MD5/SHA1)
+          - Support weak ETags for dynamic content
+          - Handle streaming (buffer or skip)
+          - Add ETag header to responses
+        - Implement PAGI::Middleware::ConditionalGet:
+          - Parse If-None-Match and If-Modified-Since headers
+          - Return 304 Not Modified when appropriate
+          - Skip body transmission for 304
+          - Work with ETag middleware
+        - Write t/middleware/12-gzip.t
+        - Write t/middleware/13-etag.t
+        - Write t/middleware/14-conditional-get.t
+      </tasks>
+      <acceptance_criteria>
+        - GZip compression applied for supported browsers
+        - Compression skipped for small responses
+        - ETags generated correctly
+        - 304 responses returned for matching ETags
+        - Content-Length updated after compression
+        - Streaming compression works for chunked responses
+      </acceptance_criteria>
+    </step>
+
+    <step number="19">
+      <title>Rate Limiting and Timeout Middleware (Tier 2)</title>
+      <target_example>All examples</target_example>
+      <spec_references>
+        - MIDDLEWARE.md (RateLimit, Timeout)
+      </spec_references>
+      <tasks>
+        - Implement PAGI::Middleware::RateLimit:
+          - Token bucket or sliding window algorithm
+          - Per-client rate limiting (by IP or header)
+          - Configurable limits (requests per period)
+          - Add X-RateLimit-* headers (Limit, Remaining, Reset)
+          - Return 429 Too Many Requests when exceeded
+          - Support exempted paths/clients
+        - Implement PAGI::Middleware::RateLimit::Store interface:
+          - Store::Memory (in-memory, per-worker)
+          - Store::Redis (optional, shared across workers)
+        - Implement PAGI::Middleware::Timeout:
+          - Configurable request timeout
+          - Cancel app Future on timeout
+          - Return 408 Request Timeout or 504 Gateway Timeout
+          - Support per-route timeout configuration
+        - Write t/middleware/15-rate-limit.t
+        - Write t/middleware/16-timeout.t
+      </tasks>
+      <acceptance_criteria>
+        - Rate limiting enforced per client
+        - X-RateLimit headers present and accurate
+        - 429 returned when limit exceeded
+        - Timeout cancels slow requests
+        - Store interface allows swappable backends
+        - Memory store works for single-worker mode
+      </acceptance_criteria>
+    </step>
+
+    <step number="20">
+      <title>Request Body Parsing Middleware (Tier 2)</title>
+      <target_example>03-request-body</target_example>
+      <spec_references>
+        - MIDDLEWARE.md (JSONBody, FormBody, ContentNegotiation)
+      </spec_references>
+      <tasks>
+        - Implement PAGI::Middleware::JSONBody:
+          - Parse application/json request bodies
+          - Add parsed data to scope->{json_body}
+          - Handle JSON parse errors (400 Bad Request)
+          - Support configurable max_size
+          - Support charset detection from Content-Type
+        - Implement PAGI::Middleware::FormBody:
+          - Parse application/x-www-form-urlencoded
+          - Parse multipart/form-data (file uploads)
+          - Add to scope->{form_body} and scope->{uploads}
+          - Handle file upload limits
+          - Temp file management for uploads
+        - Implement PAGI::Middleware::ContentNegotiation:
+          - Parse Accept header
+          - Determine best content type for response
+          - Add negotiation info to scope
+          - Support quality values (q=0.9)
+        - Write t/middleware/17-json-body.t
+        - Write t/middleware/18-form-body.t
+        - Write t/middleware/19-content-negotiation.t
+      </tasks>
+      <acceptance_criteria>
+        - JSON bodies parsed and available in scope
+        - Form data parsed including file uploads
+        - Multipart boundaries handled correctly
+        - Large uploads rejected with 413
+        - Content negotiation provides ordered type list
+        - Parse errors return appropriate 400 responses
+      </acceptance_criteria>
+    </step>
+
+    <step number="21">
+      <title>Session and Authentication Middleware (Tier 2)</title>
+      <target_example>Authentication example</target_example>
+      <spec_references>
+        - MIDDLEWARE.md (Session, Cookie, Auth::Basic, Auth::Bearer)
+      </spec_references>
+      <tasks>
+        - Implement PAGI::Middleware::Cookie:
+          - Parse Cookie header into scope->{cookies}
+          - Provide set_cookie helper in scope
+          - Support cookie attributes (Secure, HttpOnly, SameSite)
+        - Implement PAGI::Middleware::Session:
+          - Create/restore sessions from cookie
+          - Add scope->{session} hashref
+          - Session data persistence via store interface
+          - Support session expiry and renewal
+          - HMAC-signed session IDs
+        - Implement PAGI::Middleware::Session::Store:
+          - Store::Cookie (signed, encrypted)
+          - Store::Memory (per-worker)
+          - Store::File (file-based, shared)
+        - Implement PAGI::Middleware::Auth::Basic:
+          - Parse Authorization: Basic header
+          - Validate credentials via callback
+          - Add user info to scope->{auth}
+          - Challenge with WWW-Authenticate on failure
+        - Implement PAGI::Middleware::Auth::Bearer:
+          - Parse Authorization: Bearer header
+          - Validate JWT tokens
+          - Add claims to scope->{auth}
+          - Support configurable secret/public key
+        - Write t/middleware/20-cookie.t
+        - Write t/middleware/21-session.t
+        - Write t/middleware/22-auth-basic.t
+        - Write t/middleware/23-auth-bearer.t
+      </tasks>
+      <acceptance_criteria>
+        - Cookies parsed and accessible in scope
+        - Sessions persist across requests
+        - Session cookies are signed and secure
+        - Basic auth challenges/validates correctly
+        - JWT tokens validated with proper claims
+        - Auth info available in scope->{auth}
+      </acceptance_criteria>
+    </step>
+
+    <step number="22">
+      <title>URL Processing Middleware (Tier 2)</title>
+      <target_example>All examples</target_example>
+      <spec_references>
+        - MIDDLEWARE.md (Rewrite, HTTPSRedirect, ReverseProxy, Healthcheck)
+      </spec_references>
+      <tasks>
+        - Implement PAGI::Middleware::Rewrite:
+          - Pattern-based URL rewriting
+          - Support regex capture groups
+          - Support permanent (301) and temporary (302) redirects
+          - Internal rewrites (change path without redirect)
+        - Implement PAGI::Middleware::HTTPSRedirect:
+          - Detect non-HTTPS requests
+          - Redirect to HTTPS equivalent
+          - Support exempted paths (e.g., health checks)
+          - Preserve path and query string
+        - Implement PAGI::Middleware::ReverseProxy:
+          - Parse X-Forwarded-For, X-Forwarded-Proto headers
+          - Update scope client info from trusted proxies
+          - Update scheme based on X-Forwarded-Proto
+          - Configurable trusted proxy list
+        - Implement PAGI::Middleware::Healthcheck:
+          - Respond to configurable health check path
+          - Support custom health check logic
+          - Bypass other middleware for health checks
+        - Write t/middleware/24-rewrite.t
+        - Write t/middleware/25-https-redirect.t
+        - Write t/middleware/26-reverse-proxy.t
+        - Write t/middleware/27-healthcheck.t
+      </tasks>
+      <acceptance_criteria>
+        - URL rewrites work with regex patterns
+        - HTTPS redirect preserves path and query
+        - Reverse proxy headers update scope correctly
+        - Only trusted proxies can set forwarded headers
+        - Health check endpoint responds quickly
+        - All tests pass
+      </acceptance_criteria>
+    </step>
+
+    <step number="23">
+      <title>Protocol-Specific Middleware (Tier 2)</title>
+      <target_example>04-websocket-echo, 05-sse-broadcaster</target_example>
+      <spec_references>
+        - MIDDLEWARE.md (WebSocket::Heartbeat, SSE::Retry, SSE::Heartbeat)
+        - docs/specs/www.mkdn (WebSocket and SSE events)
+      </spec_references>
+      <tasks>
+        - Implement PAGI::Middleware::WebSocket::Heartbeat:
+          - Send periodic ping frames
+          - Detect pong responses
+          - Close connections on timeout
+          - Configurable interval and timeout
+        - Implement PAGI::Middleware::SSE::Retry:
+          - Add retry field to SSE messages
+          - Support global and per-event retry values
+          - Handle Last-Event-ID header for resumption
+        - Implement PAGI::Middleware::SSE::Heartbeat:
+          - Send periodic comment lines (: keepalive)
+          - Prevent connection timeouts
+          - Configurable interval
+        - Write t/middleware/28-websocket-heartbeat.t
+        - Write t/middleware/29-sse-retry.t
+        - Write t/middleware/30-sse-heartbeat.t
+      </tasks>
+      <acceptance_criteria>
+        - WebSocket ping/pong keepalive works
+        - Dead connections detected and closed
+        - SSE retry hints client reconnection timing
+        - SSE heartbeats keep connections alive
+        - Middleware correctly detects protocol type
+        - All tests pass
+      </acceptance_criteria>
+    </step>
+
+    <step number="24">
+      <title>Optional Development Middleware (Tier 3)</title>
+      <target_example>Development mode</target_example>
+      <spec_references>
+        - MIDDLEWARE.md (Debug, Lint, Maintenance, MethodOverride)
+      </spec_references>
+      <tasks>
+        - Implement PAGI::Middleware::Debug:
+          - Inject debug panel into HTML responses
+          - Show request/response details
+          - Show timing breakdown
+          - Development mode only (production disabled)
+        - Implement PAGI::Middleware::Lint:
+          - Validate PAGI app behavior
+          - Check scope compliance
+          - Warn on spec violations
+          - Development tool for app developers
+        - Implement PAGI::Middleware::Maintenance:
+          - Serve maintenance page when enabled
+          - Support bypass for admin IPs
+          - Configurable maintenance page content
+          - Return 503 Service Unavailable
+        - Implement PAGI::Middleware::MethodOverride:
+          - Parse _method query/body parameter
+          - Override HTTP method for forms
+          - Support X-HTTP-Method-Override header
+        - Implement PAGI::Middleware::ResponseCache:
+          - Cache GET responses by URL
+          - Support Cache-Control directives
+          - Memory or Redis-based cache store
+          - Support cache invalidation
+        - Write t/middleware/31-debug.t
+        - Write t/middleware/32-lint.t
+        - Write t/middleware/33-maintenance.t
+        - Write t/middleware/34-method-override.t
+        - Write t/middleware/35-response-cache.t
+      </tasks>
+      <acceptance_criteria>
+        - Debug panel shows request details
+        - Lint catches common PAGI app mistakes
+        - Maintenance mode blocks requests
+        - Method override works with _method param
+        - Response cache improves repeat requests
+        - Debug disabled in production mode
+      </acceptance_criteria>
+    </step>
+
+    <step number="25">
+      <title>Advanced WebSocket Middleware (Tier 3)</title>
+      <target_example>04-websocket-echo</target_example>
+      <spec_references>
+        - MIDDLEWARE.md (WebSocket::Compression, WebSocket::RateLimit)
+        - RFC 7692 (WebSocket per-message compression)
+      </spec_references>
+      <tasks>
+        - Implement PAGI::Middleware::WebSocket::Compression:
+          - Negotiate permessage-deflate extension
+          - Compress outgoing messages
+          - Decompress incoming messages
+          - Configurable compression level
+          - Support context takeover settings
+        - Implement PAGI::Middleware::WebSocket::RateLimit:
+          - Limit messages per second per connection
+          - Limit total bytes per second
+          - Configurable limits
+          - Close connections exceeding limits
+          - Support burst allowance
+        - Write t/middleware/36-websocket-compression.t
+        - Write t/middleware/37-websocket-rate-limit.t
+      </tasks>
+      <acceptance_criteria>
+        - WebSocket compression negotiated correctly
+        - Messages compressed/decompressed transparently
+        - Rate limiting enforced per connection
+        - Connections closed cleanly on limit exceeded
+        - Compression improves bandwidth for text messages
+      </acceptance_criteria>
+    </step>
+
+    <step number="26">
+      <title>Middleware Documentation and Integration</title>
+      <target_example>All examples with middleware</target_example>
+      <tasks>
+        - Write POD documentation for all middleware modules
+        - Create example middleware configurations
+        - Document middleware composition best practices
+        - Create recommended middleware stacks:
+          - "Basic web" stack (Static, CORS, GZip, AccessLog)
+          - "Secure API" stack (CORS, RateLimit, JSONBody, Auth::Bearer)
+          - "Full-featured" stack with all essential middleware
+        - Update examples/ to demonstrate middleware usage
+        - Write integration tests for common stacks
+        - Performance benchmarks for middleware overhead
+      </tasks>
+      <acceptance_criteria>
+        - All middleware has complete POD
+        - Example configurations work correctly
+        - Recommended stacks documented
+        - Integration tests verify stack behavior
+        - Middleware overhead measured and acceptable
+      </acceptance_criteria>
+    </step>
+
+    <!-- ============================================================
+         BUNDLED APPLICATION STEPS (Steps 27-34)
+
+         These steps implement the bundled applications defined in
+         APPS.md, providing routing, static serving, and utility
+         applications that complement the server implementation.
+         ============================================================ -->
+
+    <step number="27">
+      <title>Core Static Applications (Tier 1)</title>
+      <target_example>Static file serving</target_example>
+      <spec_references>
+        - APPS.md (App::File, App::Directory)
+      </spec_references>
+      <tasks>
+        - Implement PAGI::App::File:
+          - Serve files from configured root directory
+          - MIME type detection via extension mapping
+          - Path traversal prevention (reject ../)
+          - ETag generation from mtime + size
+          - If-None-Match support (304 responses)
+          - Range request support (206 Partial Content)
+          - Gzip pre-compressed file support (.gz)
+          - Async file I/O via IO::Async::File
+          - HEAD request support
+        - Implement PAGI::App::Directory:
+          - Extends App::File functionality
+          - Index file detection (index.html, index.htm)
+          - HTML directory listing generation
+          - JSON directory listing (Accept: application/json)
+          - Breadcrumb navigation
+          - Sorting by name, size, date
+          - Hidden file filtering
+        - Write t/app/00-file.t
+        - Write t/app/01-directory.t
+      </tasks>
+      <acceptance_criteria>
+        - Static files served with correct MIME types
+        - Path traversal attempts return 403/404
+        - ETag-based caching returns 304
+        - Range requests return partial content
+        - Directory listings work in HTML and JSON
+        - Index files served for directory requests
+      </acceptance_criteria>
+    </step>
+
+    <step number="28">
+      <title>Application Composition (Tier 1)</title>
+      <target_example>Multi-app composition</target_example>
+      <spec_references>
+        - APPS.md (App::URLMap, App::Cascade, App::NotFound, App::Redirect)
+      </spec_references>
+      <tasks>
+        - Implement PAGI::App::URLMap:
+          - Mount apps at URL path prefixes
+          - Longest-match-first path routing
+          - Adjust scope path and root_path for mounted apps
+          - Virtual host support (mount by Host header)
+          - Builder syntax for concise composition
+        - Implement PAGI::App::Cascade:
+          - Try apps in sequence until success
+          - Configurable catch status codes (default: 404, 405)
+          - Last app always executed
+          - Efficient (no response buffering)
+        - Implement PAGI::App::NotFound:
+          - Customizable 404 response
+          - Plain text, HTML template, or callback body
+          - Use as cascade fallback
+        - Implement PAGI::App::Redirect:
+          - Static or dynamic redirect target
+          - Status code (301, 302, 307, 308)
+          - Preserve query string option
+        - Write t/app/02-urlmap.t
+        - Write t/app/03-cascade.t
+        - Write t/app/05-notfound.t
+        - Write t/app/06-redirect.t
+      </tasks>
+      <acceptance_criteria>
+        - URLMap routes to correct apps by path
+        - Mounted apps see adjusted path
+        - Cascade tries apps until non-404
+        - NotFound returns customizable 404
+        - Redirects work with various status codes
+        - Composition is efficient (no extra copies)
+      </acceptance_criteria>
+    </step>
+
+    <step number="29">
+      <title>URL Router Application (Tier 1)</title>
+      <target_example>Dynamic routing</target_example>
+      <spec_references>
+        - APPS.md (App::Router)
+      </spec_references>
+      <tasks>
+        - Implement PAGI::App::Router:
+          - HTTP method routing (GET, POST, PUT, DELETE, etc.)
+          - Path pattern matching with parameters (/users/:id)
+          - Wildcard/splat patterns (/files/*path)
+          - Optional parameters (/users/:id?)
+          - Parameter constraints (regex validation)
+          - Named routes for URL generation
+          - Route groups with shared prefix
+          - Automatic 405 Method Not Allowed
+          - Automatic OPTIONS response
+          - HEAD handled as GET (body suppressed)
+        - Scope additions for matched routes:
+          - scope->{router}{params} = captured parameters
+          - scope->{router}{route} = route name
+          - scope->{router}{match} = matched pattern
+        - URL generation: $router->url_for($name, %params)
+        - Write t/app/04-router.t (comprehensive)
+      </tasks>
+      <acceptance_criteria>
+        - Routes match by method and path
+        - Path parameters captured correctly
+        - Wildcards capture remainder of path
+        - Constraints reject invalid parameters
+        - 405 returned for wrong method
+        - URL generation produces correct paths
+        - Route groups work with shared middleware
+      </acceptance_criteria>
+    </step>
+
+    <step number="30">
+      <title>Integration Applications (Tier 2)</title>
+      <target_example>Legacy integration</target_example>
+      <spec_references>
+        - APPS.md (App::Proxy, App::WrapCGI, App::CGIBin)
+      </spec_references>
+      <tasks>
+        - Implement PAGI::App::Proxy:
+          - HTTP reverse proxy to backend services
+          - Streaming request/response bodies
+          - WebSocket upgrade support
+          - Configurable timeouts
+          - X-Forwarded-* header injection
+          - Connection pooling to backends
+          - Dynamic backend selection (callback)
+          - Error handling with retries
+        - Implement PAGI::App::WrapCGI:
+          - Execute CGI scripts as PAGI apps
+          - Set CGI environment variables
+          - Parse CGI response headers
+          - Support NPH (non-parsed-header) scripts
+          - Shebang detection for interpreter
+          - Configurable timeout
+        - Implement PAGI::App::CGIBin:
+          - Serve directory of CGI scripts
+          - Extension-based script detection
+          - Interpreter mapping by extension
+        - Write t/app/07-proxy.t
+        - Write t/app/08-wrapcgi.t
+        - Write t/app/09-cgibin.t
+      </tasks>
+      <acceptance_criteria>
+        - Proxy forwards requests to backends
+        - WebSocket proxying works
+        - CGI scripts execute correctly
+        - CGI environment fully populated
+        - Timeouts prevent hanging
+        - Connection pooling reduces latency
+      </acceptance_criteria>
+    </step>
+
+    <step number="31">
+      <title>Utility Applications (Tier 2)</title>
+      <target_example>Operations support</target_example>
+      <spec_references>
+        - APPS.md (App::Healthcheck, App::Test, App::Loader)
+      </spec_references>
+      <tasks>
+        - Implement PAGI::App::Healthcheck:
+          - Configurable health check path
+          - Custom health check callback
+          - JSON response with status, version, uptime
+          - Support liveness and readiness probes
+          - Return 200 for healthy, 503 for unhealthy
+        - Implement PAGI::App::Test:
+          - Test harness for PAGI applications
+          - HTTP request methods (get, post, put, delete)
+          - WebSocket testing support
+          - SSE testing support
+          - Response assertions
+        - Implement PAGI::App::Loader:
+          - Load PAGI app from .pl file
+          - Optional file watching for reload
+          - Compilation error handling
+          - Development mode support
+        - Write t/app/10-healthcheck.t
+        - Write t/app/11-test.t
+        - Write t/app/12-loader.t
+      </tasks>
+      <acceptance_criteria>
+        - Health checks return appropriate status
+        - Custom checks can verify dependencies
+        - Test harness enables easy app testing
+        - WebSocket/SSE testing works
+        - Loader reloads on file change (dev mode)
+        - Compilation errors reported gracefully
+      </acceptance_criteria>
+    </step>
+
+    <step number="32">
+      <title>WebSocket Applications (Tier 2)</title>
+      <target_example>04-websocket-echo</target_example>
+      <spec_references>
+        - APPS.md (App::WebSocket::Echo, ::Chat, ::Broadcast)
+        - docs/specs/www.mkdn (WebSocket events)
+      </spec_references>
+      <tasks>
+        - Implement PAGI::App::WebSocket::Echo:
+          - Echo received messages back to sender
+          - Support text and binary frames
+          - Clean connection handling
+          - Useful for testing and examples
+        - Implement PAGI::App::WebSocket::Broadcast:
+          - Pub/sub pattern for WebSocket
+          - Publisher interface for external messages
+          - Channel support for message routing
+          - Connection tracking
+        - Implement PAGI::App::WebSocket::Chat:
+          - Multi-room chat functionality
+          - Join/leave room messages
+          - Message history per room
+          - User presence tracking
+          - JSON message protocol
+        - Write t/app/13-websocket-echo.t
+        - Write t/app/14-websocket-chat.t
+        - Write t/app/15-websocket-broadcast.t
+      </tasks>
+      <acceptance_criteria>
+        - Echo server echoes messages correctly
+        - Broadcast delivers to all connected clients
+        - Chat rooms isolate messages
+        - Message history available on join
+        - Clean disconnect handling
+        - Publisher interface works from any code
+      </acceptance_criteria>
+    </step>
+
+    <step number="33">
+      <title>SSE Applications (Tier 2)</title>
+      <target_example>05-sse-broadcaster</target_example>
+      <spec_references>
+        - APPS.md (App::SSE::Stream, App::SSE::Pubsub)
+        - docs/specs/www.mkdn (SSE events)
+      </spec_references>
+      <tasks>
+        - Implement PAGI::App::SSE::Stream:
+          - Event generator callback pattern
+          - Automatic retry field
+          - Heartbeat comments (keepalive)
+          - Event IDs for resumption
+          - Clean disconnect handling
+        - Implement PAGI::App::SSE::Pubsub:
+          - Channel-based event subscription
+          - Last-Event-ID resumption support
+          - Event history for reconnection
+          - Publisher interface
+          - Query param channel selection
+        - Write t/app/16-sse-stream.t
+        - Write t/app/17-sse-pubsub.t
+      </tasks>
+      <acceptance_criteria>
+        - SSE streams deliver events correctly
+        - Heartbeats keep connections alive
+        - Last-Event-ID enables resumption
+        - Pubsub channels isolate events
+        - Publisher interface works externally
+        - Event format matches SSE spec
+      </acceptance_criteria>
+    </step>
+
+    <step number="34">
+      <title>Development Applications (Tier 3)</title>
+      <target_example>Development tools</target_example>
+      <spec_references>
+        - APPS.md (App::Debug, App::Throttle, App::Combine)
+      </spec_references>
+      <tasks>
+        - Implement PAGI::App::Debug:
+          - Wrap app with debug panel injection
+          - Show request/response details
+          - Display scope contents
+          - Event log (receive/send calls)
+          - Timing breakdown
+          - Localhost-only by default
+          - Development mode only
+        - Implement PAGI::App::Throttle:
+          - Request rate limiting wrapper
+          - Configurable rate (requests/period)
+          - Per-client keying function
+          - Custom throttle response
+        - Implement PAGI::App::Combine:
+          - Custom routing logic callback
+          - Access to multiple named apps
+          - Complex routing decisions
+        - Write t/app/18-debug.t
+        - Write t/app/19-throttle.t
+        - Write t/app/20-combine.t
+      </tasks>
+      <acceptance_criteria>
+        - Debug panel shows request info
+        - Disabled in production mode
+        - Throttle limits requests per client
+        - Combine enables custom routing
+        - All apps compose with URLMap/Cascade
+      </acceptance_criteria>
+    </step>
+
+    <step number="35">
+      <title>Application Documentation and Examples</title>
+      <target_example>Complete application demos</target_example>
+      <tasks>
+        - Write POD documentation for all App modules
+        - Create composition examples in examples/:
+          - examples/11-full-stack/ - Complete web app
+          - examples/12-api-gateway/ - Microservices proxy
+          - examples/13-realtime-app/ - WebSocket + SSE
+        - Document common patterns:
+          - Static + Dynamic cascade
+          - Multi-tenant routing
+          - API versioning
+          - WebSocket chat room
+        - Integration tests for example apps
+        - Performance benchmarks for routing
+      </tasks>
+      <acceptance_criteria>
+        - All App modules documented
+        - Example apps demonstrate composition
+        - Common patterns clearly explained
+        - Integration tests pass
+        - Routing performance acceptable
+      </acceptance_criteria>
+    </step>
   </implementation_steps>
 
   <testing_strategy>
@@ -622,6 +1634,132 @@
       - Test extension advertisement and usage
       - Test error handling matches spec requirements
     </compliance_tests>
+
+    <middleware_tests>
+      <location>t/middleware/</location>
+      <description>
+        Dedicated test suite for all middleware components. Each middleware
+        has its own test file with comprehensive coverage.
+      </description>
+
+      <test_patterns>
+        - Unit tests: Each middleware tested in isolation with mock app
+        - Configuration tests: Verify all config options work correctly
+        - Edge case tests: Boundary conditions, error handling
+        - Integration tests: Common middleware stacks working together
+        - Security tests: For security middleware (CORS, CSRF, etc.)
+        - Performance tests: Verify minimal overhead
+      </test_patterns>
+
+      <test_utilities>
+        - Mock PAGI app for testing middleware behavior
+        - Response capture helper for verifying $send calls
+        - Scope builder helper for creating test scopes
+        - Header assertion helpers
+      </test_utilities>
+
+      <coverage_requirements>
+        - All configuration options tested
+        - All documented behaviors verified
+        - Error conditions trigger appropriate responses
+        - Middleware correctly passes through to inner app
+        - Scope modifications don't mutate original
+        - Response interception works correctly
+      </coverage_requirements>
+
+      <tier_1_tests>
+        - Static file serving with security (path traversal prevention)
+        - ErrorHandler exception mapping and templates
+        - ContentLength calculation accuracy
+        - Head request body suppression
+        - CORS preflight and header validation
+        - SecurityHeaders presence and values
+        - GZip compression threshold and content types
+        - AccessLog format and timing
+      </tier_1_tests>
+
+      <tier_2_tests>
+        - CSRF token generation and validation
+        - RateLimit bucket algorithm and headers
+        - Session persistence across requests
+        - Auth credential validation
+        - JSON/Form body parsing accuracy
+        - URL rewrite pattern matching
+        - WebSocket/SSE heartbeat timing
+      </tier_2_tests>
+
+      <tier_3_tests>
+        - Debug panel injection (dev mode only)
+        - Lint validation warnings
+        - Maintenance mode bypass
+        - Method override sources
+        - WebSocket compression negotiation
+        - Response cache hit/miss behavior
+      </tier_3_tests>
+    </middleware_tests>
+
+    <app_tests>
+      <location>t/app/</location>
+      <description>
+        Test suite for all bundled PAGI::App::* modules. Each application
+        has its own test file verifying functionality and edge cases.
+      </description>
+
+      <test_patterns>
+        - Unit tests: Each app tested in isolation
+        - Configuration tests: Verify all options work
+        - Composition tests: Apps work together (URLMap, Cascade)
+        - Security tests: Path traversal, access control
+        - Protocol tests: WebSocket/SSE apps tested with actual protocols
+        - Performance tests: Routing and static serving benchmarks
+      </test_patterns>
+
+      <static_tests>
+        - File serving with correct MIME types
+        - Path traversal prevention (../ attacks)
+        - ETag generation and 304 responses
+        - Range requests (206 Partial Content)
+        - Directory listings (HTML and JSON)
+        - Index file detection
+        - Hidden file filtering
+      </static_tests>
+
+      <routing_tests>
+        - URLMap path prefix matching
+        - Cascade fallback behavior
+        - Router parameter extraction
+        - Router method matching
+        - 405 Method Not Allowed
+        - URL generation from named routes
+        - Route group prefixes
+      </routing_tests>
+
+      <integration_tests>
+        - Proxy request forwarding
+        - WebSocket proxy upgrade
+        - CGI environment setup
+        - CGI response parsing
+        - Health check responses
+        - App loading and reloading
+      </integration_tests>
+
+      <protocol_tests>
+        - WebSocket echo correctness
+        - WebSocket broadcast delivery
+        - Chat room isolation
+        - SSE event formatting
+        - SSE Last-Event-ID resumption
+        - Publisher interface functionality
+      </protocol_tests>
+
+      <composition_tests>
+        - URLMap + Cascade + Router stacks
+        - Static + Dynamic cascade patterns
+        - Multi-tenant routing scenarios
+        - API gateway configurations
+        - Full-stack web app setups
+      </composition_tests>
+    </app_tests>
   </testing_strategy>
 
   <error_handling>
