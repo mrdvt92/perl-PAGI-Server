@@ -432,7 +432,7 @@
       "Step 4: Verify Content-Type header is present",
       "Step 5: Verify response body is empty"
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "functional",
@@ -519,7 +519,7 @@
       "Step 3: Verify scope.headers contains single Cookie header",
       "Step 4: Verify cookie values are joined with '; '"
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "functional",
