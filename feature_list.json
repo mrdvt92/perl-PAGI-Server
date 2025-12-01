@@ -1252,7 +1252,7 @@
       "Step 3: Wait for heartbeat interval",
       "Step 4: Verify PING frame is sent"
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "functional",
@@ -1262,7 +1262,7 @@
       "Step 2: Connect to SSE endpoint",
       "Step 3: Verify retry: field in SSE events"
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "functional",
@@ -1273,7 +1273,7 @@
       "Step 3: Wait for heartbeat interval",
       "Step 4: Verify comment line (: keepalive) is sent"
     ],
-    "passes": false
+    "passes": true
   },
 
   {
@@ -1285,7 +1285,7 @@
       "Step 3: Verify debug panel is injected",
       "Step 4: Verify debug shows request/response info"
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "functional",
@@ -1295,7 +1295,7 @@
       "Step 2: Run app with spec violations",
       "Step 3: Verify warnings are generated"
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "functional",
@@ -1306,7 +1306,7 @@
       "Step 3: Verify 503 response with maintenance page",
       "Step 4: Verify bypass works for admin IPs"
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "functional",
@@ -1316,7 +1316,7 @@
       "Step 2: Send POST with _method=DELETE",
       "Step 3: Verify inner app sees DELETE method"
     ],
-    "passes": false
+    "passes": true
   },
 
   {
@@ -1328,7 +1328,7 @@
       "Step 3: Send large text message",
       "Step 4: Verify message is compressed on wire"
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "functional",
@@ -1339,7 +1339,7 @@
       "Step 3: Verify rate limit is enforced",
       "Step 4: Verify connection closed on excessive messages"
     ],
-    "passes": false
+    "passes": true
   },
 
   {
