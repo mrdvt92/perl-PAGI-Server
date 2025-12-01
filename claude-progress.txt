@@ -1,5 +1,70 @@
 # PAGI Reference Server - Development Progress
 
+## Session 21: Step 17 - Security Middleware (2025-12-01)
+
+### Completed Tasks
+
+1. **Implemented PAGI::Middleware::CORS**
+   - Handles OPTIONS preflight requests
+   - Configurable allowed origins, methods, headers
+   - Supports credentials and max-age
+   - Adds Vary: Origin header for caching
+
+2. **Implemented PAGI::Middleware::SecurityHeaders**
+   - X-Frame-Options (default: SAMEORIGIN)
+   - X-Content-Type-Options (default: nosniff)
+   - X-XSS-Protection
+   - Referrer-Policy
+   - Optional HSTS, CSP, Permissions-Policy
+
+3. **Implemented PAGI::Middleware::TrustedHosts**
+   - Validates Host header against whitelist
+   - Supports wildcard patterns (*.example.com)
+   - Returns 400 for invalid hosts
+
+4. **Implemented PAGI::Middleware::CSRF**
+   - Double-submit cookie pattern
+   - Validates tokens on unsafe methods (POST, PUT, etc.)
+   - Adds csrf_token to scope for apps
+   - Configurable header/cookie names
+
+### Test Results
+
+All tests pass:
+```
+prove -l t/
+All tests successful.
+Files=12, Tests=86
+```
+
+### Features Status: 93/147 passing (63%)
+
+- Steps 1-12 (Server): 75/75 passing (100%)
+- Step 13 (Infrastructure): 4/4 passing (100%)
+- Step 14 (Core HTTP): 3/3 passing (100%)
+- Step 15 (Static Files): 4/4 passing (100%)
+- Step 16 (Logging): 3/3 passing (100%)
+- Step 17 (Security): 4/4 passing (100%)
+- Steps 18-35 (Remaining): 0/54 passing (0%)
+
+### Key Code Changes
+
+**New files:**
+- lib/PAGI/Middleware/CORS.pm
+- lib/PAGI/Middleware/SecurityHeaders.pm
+- lib/PAGI/Middleware/TrustedHosts.pm
+- lib/PAGI/Middleware/CSRF.pm
+- t/middleware/06-security.t
+
+### Next Steps
+
+1. **Step 18: Compression/Caching Middleware**
+   - GZip middleware (response compression)
+   - ETag middleware (ETag generation)
+   - ConditionalGet middleware (304 responses)
+
+---
+
 ## Session 20: Step 16 - Logging Middleware (2025-12-01)
 
 ### Completed Tasks

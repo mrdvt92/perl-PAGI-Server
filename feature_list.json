@@ -1003,7 +1003,7 @@
       "Step 3: Verify Access-Control-Allow-Origin header",
       "Step 4: Verify Access-Control-Allow-Methods header"
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "functional",
@@ -1014,7 +1014,7 @@
       "Step 3: Verify X-Content-Type-Options: nosniff",
       "Step 4: Verify X-Frame-Options header present"
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "functional",
@@ -1026,7 +1026,7 @@
       "Step 4: Send request with invalid Host",
       "Step 5: Verify response is 400 Bad Request"
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "functional",
@@ -1038,7 +1038,7 @@
       "Step 4: Send POST with valid CSRF token",
       "Step 5: Verify request succeeds"
     ],
-    "passes": false
+    "passes": true
   },
 
   {
