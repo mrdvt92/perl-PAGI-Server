@@ -5,8 +5,8 @@ PAGI is a specification for asynchronous Perl web applications, designed as a sp
 ## Repository Contents
 
 - **docs/** - PAGI specification documents
-- **examples/** - Reference PAGI applications
-- **lib/** - Reference server implementation (PAGI::Server) - *in development*
+- **examples/** - Reference PAGI applications (raw PAGI and PAGI::Simple)
+- **lib/** - Reference server implementation (PAGI::Server) and micro-framework (PAGI::Simple)
 - **bin/** - CLI launcher (pagi-server)
 - **t/** - Test suite
 
@@ -24,8 +24,14 @@ PAGI is a specification for asynchronous Perl web applications, designed as a sp
 # Run tests
 prove -l t/
 
-# Start the server (once implemented)
-perl -Ilib bin/pagi-server --app examples/01-hello-http/app.pl --port 5000
+# Start the server with a raw PAGI app
+pagi-server --app examples/01-hello-http/app.pl --port 5000
+
+# Or with a PAGI::Simple app
+pagi-server --app examples/simple-01-hello/app.pl --port 5000
+
+# Test it
+curl http://localhost:5000/
 ```
 
 ## PAGI Application Interface
@@ -66,7 +72,38 @@ async sub app ($scope, $receive, $send) {
 - `sse` - Server-Sent Events stream
 - `lifespan` - Process startup/shutdown lifecycle
 
+## PAGI::Simple Micro-Framework
+
+For simpler applications, use the PAGI::Simple micro-framework:
+
+```perl
+use PAGI::Simple;
+
+my $app = PAGI::Simple->new(name => 'My App');
+
+$app->get('/' => sub ($c) {
+    $c->text("Hello, World!");
+});
+
+$app->get('/greet/:name' => sub ($c) {
+    my $name = $c->path_params->{name};
+    $c->json({ greeting => "Hello, $name!" });
+});
+
+$app->websocket('/ws' => sub ($ws) {
+    $ws->on(message => sub ($data) {
+        $ws->send("Echo: $data");
+    });
+});
+
+$app->to_app;
+```
+
 ## Example Applications
+
+### Raw PAGI Examples
+
+These examples demonstrate the low-level PAGI protocol directly:
 
 | Example | Description |
 |---------|-------------|
@@ -79,6 +116,17 @@ async sub app ($scope, $receive, $send) {
 | 07-extension-fullflush | TCP flush extension |
 | 08-tls-introspection | TLS connection info |
 | 09-psgi-bridge | PSGI compatibility |
+
+### PAGI::Simple Examples
+
+These examples use the PAGI::Simple micro-framework for easier development:
+
+| Example | Description |
+|---------|-------------|
+| simple-01-hello | Basic routing, path params, JSON/HTML responses |
+| simple-02-forms | Form processing, REST API, CRUD operations |
+| simple-03-websocket | WebSocket chat with rooms and broadcasting |
+| simple-04-sse | Server-Sent Events with channels |
 
 ## Development
 
