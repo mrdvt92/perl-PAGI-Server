@@ -12,7 +12,9 @@
       "Bash(prove -Ilib:*)",
       "Bash(for f in examples/simple-*/app.pl)",
       "Bash(do echo -n \"$f: \")",
-      "Bash(done)"
+      "Bash(done)",
+      "Bash(prove -lv:*)",
+      "Bash(git restore:*)"
     ],
     "deny": [],
     "ask": []
