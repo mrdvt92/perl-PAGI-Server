@@ -172,6 +172,16 @@ These examples use the PAGI::Simple micro-framework for easier development:
 | simple-02-forms | Form processing, REST API, CRUD operations |
 | simple-03-websocket | WebSocket chat with rooms and broadcasting |
 | simple-04-sse | Server-Sent Events with channels |
+| simple-05-streaming | Response streaming helpers (stream/stream_from/send_file) |
+| simple-06-negotiation | Content negotiation via respond_to |
+| simple-07-uploads | Multipart uploads with temp files/validations |
+| simple-08-cookies | Cookies and signed cookies |
+| simple-09-cors | CORS headers and preflight handling |
+| simple-10-logging | Structured logging middleware |
+| simple-11-named-routes | Named routes and redirects |
+| simple-12-mount | Mounting nested PAGI::Simple apps |
+| simple-13-utf8 | UTF-8 defaults plus raw/strict helpers |
+| simple-14-streaming | Streaming request bodies (decode + stream_to_file) |
 
 ## Development
 

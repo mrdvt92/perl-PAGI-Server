@@ -122,6 +122,18 @@ sub receive ($self) {
     return $self->{receive};
 }
 
+=head2 body_stream
+
+    my $stream = $c->body_stream(%opts);
+
+Shortcut to C<< $c->req->body_stream >> for streaming request bodies. Accepts
+the same options: C<max_bytes> (defaults to Content-Length), C<decode>
+(e.g., C<'UTF-8'>), C<strict> for decode errors, and optional C<loop> for
+file piping helpers. Buffered helpers (body/body_params/json_body/uploads)
+are unavailable once streaming starts.
+
+=cut
+
 =head2 send
 
     my $send = $c->send;
@@ -337,6 +349,20 @@ sub req ($self) {
         );
     }
     return $self->{_req};
+}
+
+=head2 body_stream
+
+    my $stream = $c->body_stream(%opts);
+
+Shortcut to C<< $c->req->body_stream >> (see that method for options and
+mutual exclusion rules). Handy for streaming uploads (C<stream_to_file>) or
+UTF-8 decoding without buffering.
+
+=cut
+
+sub body_stream ($self, %opts) {
+    return $self->req->body_stream(%opts);
 }
 
 =head2 response_started

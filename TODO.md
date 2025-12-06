@@ -54,3 +54,4 @@ to enable cross-worker PubSub. After research, we decided against it:
 - Scaling guide: single-worker vs multi-worker vs multi-server
 - PubSub limitations and Redis migration path
 - Performance tuning guide
+- Streaming request body support shipped (opt-in, backpressure, limits, decoding) - see PLAN.md and the simple-14-streaming example

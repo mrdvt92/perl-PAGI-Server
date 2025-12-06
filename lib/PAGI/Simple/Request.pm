@@ -15,6 +15,7 @@ use PAGI::Simple::CookieUtil;
 use PAGI::Simple::Negotiate;
 use PAGI::Simple::MultipartParser;
 use PAGI::Simple::Upload;
+use PAGI::Simple::BodyStream;
 
 my $json = JSON::MaybeXS->new(utf8 => 1, allow_nonref => 1);
 
@@ -48,6 +49,28 @@ convenient access to request data. Headers are exposed via
 Hash::MultiValue for proper handling of multi-value headers.
 
 =head1 METHODS
+
+=head2 body_stream
+
+    my $stream = $req->body_stream(%opts);
+
+Opt-in streaming interface for request bodies. Options:
+
+=over 4
+
+=item * C<max_bytes> - croak if the total bytes read exceeds this value (defaults to C<Content-Length> when present).
+
+=item * C<decode> - decode chunks (e.g., C<'UTF-8'>); otherwise returns raw bytes.
+
+=item * C<strict> - when decoding, croak on invalid or truncated data (default: replacement).
+
+=item * C<loop> - optional IO::Async::Loop to use for file piping helpers.
+
+=back
+
+Returns a L<PAGI::Simple::BodyStream> object. Streaming is mutually exclusive
+with buffered helpers (body/body_params/json_body/uploads/etc); calling buffered
+helpers after streaming has begun will croak.
 
 =cut
 
@@ -87,6 +110,64 @@ Returns the raw PAGI scope hashref.
 
 sub scope ($self) {
     return $self->{scope};
+}
+
+sub _assert_body_not_read ($self) {
+    croak "Body already consumed; streaming not available" if $self->{_body_read};
+    croak "Body already consumed; streaming not available" if $self->{_body};
+    croak "Body already consumed; streaming not available" if $self->{_body_params};
+    croak "Body streaming already started" if $self->{_body_stream_created};
+}
+
+sub _assert_stream_not_started ($self) {
+    croak "Body streaming already started; buffered helpers are unavailable" if $self->{_body_stream_created};
+}
+
+=head2 body_stream
+
+    my $stream = $req->body_stream(%opts);
+
+Create a streaming reader for the request body. This is mutually exclusive
+with buffered helpers (body, body_params, json_body, etc). Options:
+
+=over 4
+
+=item * C<max_bytes> - croak if total bytes exceed this value (defaults to Content-Length if present).
+
+=item * C<decode> - decode chunks, e.g. C<'UTF-8'> (default: raw bytes).
+
+=item * C<strict> - when decoding, croak on invalid/truncated data (default: replacement).
+
+=item * C<loop> - optional loop for file piping helpers.
+
+=back
+
+The returned stream exposes C<next_chunk>, C<stream_to_file>, and C<stream_to>
+for backpressure-friendly consumption, plus helpers like C<bytes_read> and
+C<last_raw_chunk> for diagnostics.
+
+=cut
+
+sub body_stream ($self, %opts) {
+    $self->_assert_body_not_read;
+    $self->{_body_stream_created} = 1;
+    my $max_bytes = $opts{max_bytes};
+    my $limit_name = defined $max_bytes ? 'max_bytes' : undef;
+    if (!defined $max_bytes) {
+        my $cl = $self->content_length;
+        if (defined $cl) {
+            $max_bytes  = $cl;
+            $limit_name = 'content-length';
+        }
+    }
+    return PAGI::Simple::BodyStream->new(
+        receive   => $self->{receive},
+        max_bytes => $max_bytes,
+        limit_name => $limit_name,
+        loop      => $opts{loop} // ($self->{scope}{pagi}{loop} // undef),
+        decode    => $opts{decode},
+        strict    => $opts{strict},
+    );
 }
 
 =head2 method
@@ -602,6 +683,7 @@ This is an async method that returns a Future.
 =cut
 
 async sub body ($self) {
+    $self->_assert_stream_not_started;
     # Return cached body if already read
     return $self->{_body} if $self->{_body_read};
 
