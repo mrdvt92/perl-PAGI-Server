@@ -136,4 +136,44 @@ subtest 'home from subpackage' => sub {
     ok(-d $home, 'home() returns existing directory');
 };
 
+# Test 9: share in constructor (string form)
+subtest 'share in constructor (string)' => sub {
+    my $app = PAGI::Simple->new(
+        name  => 'Test App',
+        share => 'htmx',
+    );
+
+    ok($app->has_shared('htmx'), 'has_shared(htmx) returns true after constructor');
+    ok(scalar @{$app->{_static_handlers}} > 0, 'static handler was added');
+};
+
+# Test 10: share in constructor (arrayref form)
+subtest 'share in constructor (arrayref)' => sub {
+    my $app = PAGI::Simple->new(
+        name  => 'Test App',
+        share => ['htmx'],
+    );
+
+    ok($app->has_shared('htmx'), 'has_shared(htmx) returns true with arrayref');
+    ok(scalar @{$app->{_static_handlers}} > 0, 'static handler was added');
+};
+
+# Test 11: share constructor option with views
+subtest 'share and views in constructor' => sub {
+    use File::Temp qw(tempdir);
+    use File::Path qw(make_path);
+
+    my $tmpdir = tempdir(CLEANUP => 1);
+    make_path("$tmpdir/templates");
+
+    my $app = PAGI::Simple->new(
+        name  => 'Test App',
+        views => "$tmpdir/templates",
+        share => 'htmx',
+    );
+
+    ok($app->has_shared('htmx'), 'has_shared(htmx) returns true');
+    ok($app->view, 'view is configured');
+};
+
 done_testing;

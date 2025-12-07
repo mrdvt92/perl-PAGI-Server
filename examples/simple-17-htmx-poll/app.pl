@@ -61,10 +61,8 @@ _create_poll('Best web framework approach?', ['Full-stack', 'Micro-framework', '
 my $app = PAGI::Simple->new(
     name  => 'Live Poll',
     views => 'templates',
+    share => 'htmx',  # Mount PAGI's bundled htmx (required for htmx() helper)
 );
-
-# Mount PAGI's bundled htmx library (required for htmx() helper)
-$app->share('htmx');
 
 # ============================================================================
 # Routes

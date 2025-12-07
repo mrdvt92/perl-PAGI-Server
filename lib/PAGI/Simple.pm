@@ -353,14 +353,35 @@ Options:
 Relative paths are resolved relative to the directory containing the file
 that creates the PAGI::Simple app. See L</views> for available options.
 
+=item * C<share> - Mount PAGI's bundled assets. Can be:
+
+=over 4
+
+=item * A string (single asset): C<< share => 'htmx' >>
+
+=item * An arrayref (multiple assets): C<< share => ['htmx', 'alpine'] >>
+
+=back
+
+This is equivalent to calling C<< $app->share(...) >> after construction.
+See L</share> for available assets and details.
+
 =back
 
 Examples:
 
-    # Simple app with views
+    # Simple app with views and htmx
     my $app = PAGI::Simple->new(
         name  => 'My App',
         views => 'templates',
+        share => 'htmx',
+    );
+
+    # Multiple shared assets (future)
+    my $app = PAGI::Simple->new(
+        name  => 'My App',
+        views => 'templates',
+        share => ['htmx', 'alpine'],
     );
 
     # With view options
@@ -413,6 +434,14 @@ sub new ($class, %args) {
     # Handle views configuration in constructor
     if (exists $args{views}) {
         $self->_configure_views($args{views});
+    }
+
+    # Handle share configuration in constructor
+    if (exists $args{share}) {
+        my $share = $args{share};
+        # Accept string or arrayref
+        my @assets = ref($share) eq 'ARRAY' ? @$share : ($share);
+        $self->share(@assets);
     }
 
     return $self;
@@ -769,18 +798,39 @@ B<Available bundled assets:>
 
 =back
 
+B<Constructor option:>
+
+You can also configure shared assets in the constructor:
+
+    my $app = PAGI::Simple->new(
+        name  => 'My App',
+        views => 'templates',
+        share => 'htmx',              # single asset
+    );
+
+    # Or multiple assets
+    my $app = PAGI::Simple->new(
+        name  => 'My App',
+        views => 'templates',
+        share => ['htmx', 'alpine'],  # arrayref for multiple
+    );
+
 B<Example with htmx helpers:>
 
-    my $app = PAGI::Simple->new(name => 'My App', views => 'templates');
-    $app->share('htmx');  # Required before using htmx() helper
+    # Recommended: configure in constructor
+    my $app = PAGI::Simple->new(
+        name  => 'My App',
+        views => 'templates',
+        share => 'htmx',
+    );
 
     # In templates, use the htmx() helper
     # <%= htmx() %>
     # <%= htmx_sse() %>
 
 B<Note:> The C<htmx()> and C<htmx_sse()> template helpers require
-C<< $app->share('htmx') >> to be called first. This ensures the htmx
-JavaScript files are available at the paths the helpers expect.
+C<htmx> to be shared first (via constructor or method). This ensures
+the htmx JavaScript files are available at the paths the helpers expect.
 
 =cut
 
