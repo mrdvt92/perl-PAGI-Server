@@ -7,7 +7,12 @@ use experimental 'signatures';
 our $VERSION = '0.01';
 
 use JSON::MaybeXS qw(encode_json);
-use PAGI::Simple::View::Helpers qw(raw);
+use Template::EmbeddedPerl::SafeString;
+
+# Use Template::EmbeddedPerl's SafeString so auto-escaping recognizes our output
+sub raw ($html) {
+    return Template::EmbeddedPerl::SafeString::raw($html);
+}
 
 =head1 NAME
 

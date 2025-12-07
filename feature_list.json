@@ -128,7 +128,7 @@
    {
       "category" : "functional",
       "description" : "Step 3: htmx() script tag helper",
-      "passes" : false,
+      "passes" : true,
       "steps" : [
          "Step 1: Create template with <%= htmx() %>",
          "Step 2: Render template",
@@ -139,7 +139,7 @@
    {
       "category" : "functional",
       "description" : "Step 3: hx_get() attribute helper generates correct attributes",
-      "passes" : false,
+      "passes" : true,
       "steps" : [
          "Step 1: Call hx_get('/api/data', target => '#result', swap => 'innerHTML')",
          "Step 2: Verify output contains hx-get=\"/api/data\"",
@@ -150,7 +150,7 @@
    {
       "category" : "functional",
       "description" : "Step 3: hx_post() with all options",
-      "passes" : false,
+      "passes" : true,
       "steps" : [
          "Step 1: Call hx_post('/submit', target => 'this', trigger => 'click', confirm => 'Sure?')",
          "Step 2: Verify hx-post, hx-target, hx-trigger, hx-confirm all present",
@@ -161,7 +161,7 @@
    {
       "category" : "functional",
       "description" : "Step 3: hx_delete() with confirm dialog",
-      "passes" : false,
+      "passes" : true,
       "steps" : [
          "Step 1: Call hx_delete('/items/123', confirm => 'Delete item?')",
          "Step 2: Verify hx-delete attribute present",
@@ -171,7 +171,7 @@
    {
       "category" : "functional",
       "description" : "Step 3: hx_sse() for Server-Sent Events",
-      "passes" : false,
+      "passes" : true,
       "steps" : [
          "Step 1: Call hx_sse('/events', connect => 1, swap => 'beforeend')",
          "Step 2: Verify hx-ext=\"sse\" attribute",
@@ -182,7 +182,7 @@
    {
       "category" : "functional",
       "description" : "Step 3: hx_ws() for WebSocket connections",
-      "passes" : false,
+      "passes" : true,
       "steps" : [
          "Step 1: Call hx_ws('/ws', connect => 1)",
          "Step 2: Verify hx-ext=\"ws\" attribute",
@@ -1007,7 +1007,7 @@
    {
       "category" : "functional",
       "description" : "htmx JavaScript bundled in share/htmx/",
-      "passes" : false,
+      "passes" : true,
       "steps" : [
          "Step 1: Verify share/htmx/htmx.min.js exists",
          "Step 2: Verify share/htmx/ext/ws.js exists",
