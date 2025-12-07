@@ -1,9 +1,7 @@
-<%
-    my $index = $v->{index};
-    my $value = $v->{value} // '';
-    my $count = $v->{count} // 2;
-    my $show_remove = $count > 2;
-%>
+<% my $index = $v->{index}; %>
+<% my $value = $v->{value} // ''; %>
+<% my $count = $v->{count} // 2; %>
+<% my $show_remove = $count != 2; %>
 <div class="option-row" style="display: flex; gap: 8px; margin-bottom: 8px;">
     <input type="text"
            name="options[]"
