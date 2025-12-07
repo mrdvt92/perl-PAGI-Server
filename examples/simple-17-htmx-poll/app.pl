@@ -22,8 +22,42 @@ use PAGI::Simple::PubSub;
 my $next_id = 1;
 my %polls = ();
 
+# ============================================================================
+# Helper functions (defined before use)
+# ============================================================================
+
+sub _create_poll ($question, $options) {
+    my $id = $next_id++;
+    $polls{$id} = {
+        id       => $id,
+        question => $question,
+        options  => { map { $_ => 0 } @$options },
+        created  => time(),
+    };
+    return $polls{$id};
+}
+
+sub _all_polls {
+    return sort { $b->{created} <=> $a->{created} } values %polls;
+}
+
+sub _get_poll ($id) {
+    return $polls{$id};
+}
+
+sub _vote ($id, $option) {
+    my $poll = $polls{$id} or return;
+    $poll->{options}{$option}++ if exists $poll->{options}{$option};
+    return $poll;
+}
+
+sub _delete_poll ($id) {
+    return delete $polls{$id};
+}
+
 # Seed with sample data
-_seed_polls();
+_create_poll('What is your favorite programming language?', ['Perl', 'Python', 'JavaScript', 'Rust']);
+_create_poll('Best web framework approach?', ['Full-stack', 'Micro-framework', 'Static + API']);
 
 my $app = PAGI::Simple->new(
     name  => 'Live Poll',
@@ -145,51 +179,5 @@ $app->sse('/polls/:id/live' => sub ($sse) {
     });
 });
 
-# Return the PAGI app
+# Return the PAGI app (must be last expression in file)
 $app->to_app;
-
-# ============================================================================
-# Helper functions
-# ============================================================================
-
-sub _seed_polls {
-    _create_poll('What is your favorite programming language?', ['Perl', 'Python', 'JavaScript', 'Rust']);
-    _create_poll('Best web framework approach?', ['Full-stack', 'Micro-framework', 'Static + API']);
-}
-
-sub _create_poll ($question, $options) {
-    my $id = $next_id++;
-    $polls{$id} = {
-        id       => $id,
-        question => $question,
-        options  => { map { $_ => 0 } @$options },
-        created  => time(),
-    };
-    return $polls{$id};
-}
-
-sub _all_polls {
-    return sort { $b->{created} <=> $a->{created} } values %polls;
-}
-
-sub _get_poll ($id) {
-    return $polls{$id};
-}
-
-sub _vote ($id, $option) {
-    my $poll = $polls{$id} or return;
-    $poll->{options}{$option}++ if exists $poll->{options}{$option};
-    return $poll;
-}
-
-sub _total_votes ($poll) {
-    my $total = 0;
-    $total += $_ for values %{$poll->{options}};
-    return $total;
-}
-
-sub _delete_poll ($id) {
-    return delete $polls{$id};
-}
-
-1;
