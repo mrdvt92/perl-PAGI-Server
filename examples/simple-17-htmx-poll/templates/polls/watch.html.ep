@@ -1,0 +1,24 @@
+<% extends('layouts/default') %>
+<%
+my $poll = $v->{poll};
+my $id = $poll->{id};
+%>
+
+<% content_for('styles', '<style>.watching { border-left: 4px solid #22c55e; } .status { color: #22c55e; font-size: 0.85rem; }</style>') %>
+
+<p style="margin-bottom: 16px;">
+    <a href="/" class="btn btn-primary">Back to All Polls</a>
+</p>
+
+<div class="card watching">
+    <p class="status">Watching live updates via SSE...</p>
+</div>
+
+<!-- SSE-connected container that swaps in vote updates -->
+<div <%= hx_sse("/polls/$id/live", swap => 'innerHTML') %>>
+    <div sse-swap="vote">
+        <%= include('polls/_card', poll => $poll, show_vote => 0, show_delete => 0) %>
+    </div>
+</div>
+
+<% content_for('scripts', '<script>console.log("SSE connection established for poll ' . $id . '");</script>') %>

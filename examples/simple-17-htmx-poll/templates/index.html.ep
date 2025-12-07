@@ -1,0 +1,26 @@
+<% extends('layouts/default') %>
+
+<!-- Create Poll Form -->
+<div class="card" style="margin-bottom: 24px;">
+    <h2>Create New Poll</h2>
+    <form <%= hx_post('/polls/create',
+                      target => '#polls',
+                      swap => 'afterbegin') %>
+          onsubmit="setTimeout(() => this.reset(), 100)">
+        <input type="text" name="question" placeholder="Enter your question..." required>
+        <input type="text" name="options" placeholder="Options (comma-separated, e.g.: Yes, No, Maybe)" required>
+        <button type="submit" class="btn btn-primary">Create Poll</button>
+    </form>
+</div>
+
+<h2 style="margin-bottom: 16px;">Active Polls</h2>
+
+<div id="polls">
+<% for my $poll (@{$v->{polls}}) { %>
+    <%= include('polls/_card', poll => $poll) %>
+<% } %>
+</div>
+
+<% if (!@{$v->{polls}}) { %>
+<p style="color: #666;">No polls yet. Create one above!</p>
+<% } %>
