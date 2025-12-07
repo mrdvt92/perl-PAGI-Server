@@ -292,18 +292,16 @@ sub _build_hx_attrs ($method, $url, %opts) {
         push @attrs, qq{hx-select="$opts{select}"};
     }
 
-    # Values (JSON)
+    # Values (JSON) - use single quotes to avoid escaping JSON double quotes
     if (defined $opts{vals} && ref($opts{vals}) eq 'HASH') {
         my $json = encode_json($opts{vals});
-        $json =~ s/"/&quot;/g;
-        push @attrs, qq{hx-vals="$json"};
+        push @attrs, qq{hx-vals='$json'};
     }
 
-    # Headers (JSON)
+    # Headers (JSON) - use single quotes to avoid escaping JSON double quotes
     if (defined $opts{headers} && ref($opts{headers}) eq 'HASH') {
         my $json = encode_json($opts{headers});
-        $json =~ s/"/&quot;/g;
-        push @attrs, qq{hx-headers="$json"};
+        push @attrs, qq{hx-headers='$json'};
     }
 
     # Indicator

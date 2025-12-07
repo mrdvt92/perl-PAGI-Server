@@ -139,10 +139,10 @@ subtest 'hx_* with vals option serializes to JSON' => sub {
     my $html = $view->render_string(q{<button <%= hx_post('/submit', vals => { key => 'value', num => 42 }) %>></button>});
 
     like($html, qr/hx-post="\/submit"/, 'hx-post attribute');
-    like($html, qr/hx-vals="/, 'hx-vals attribute present');
-    # JSON should contain key and value (quotes escaped)
-    like($html, qr/&quot;key&quot;/, 'key in JSON (escaped quotes)');
-    like($html, qr/&quot;value&quot;/, 'value in JSON (escaped quotes)');
+    like($html, qr/hx-vals='/, 'hx-vals attribute present (single quotes)');
+    # JSON should contain key and value with proper double quotes
+    like($html, qr/"key"/, 'key in JSON');
+    like($html, qr/"value"/, 'value in JSON');
 };
 
 # =============================================================================
@@ -157,7 +157,7 @@ subtest 'hx_* with headers option serializes to JSON' => sub {
     my $html = $view->render_string(q{<button <%= hx_get('/api', headers => { 'X-Custom' => 'test' }) %>></button>});
 
     like($html, qr/hx-get="\/api"/, 'hx-get attribute');
-    like($html, qr/hx-headers="/, 'hx-headers attribute present');
+    like($html, qr/hx-headers='/, 'hx-headers attribute present (single quotes)');
     like($html, qr/X-Custom/, 'header name in JSON');
 };
 
