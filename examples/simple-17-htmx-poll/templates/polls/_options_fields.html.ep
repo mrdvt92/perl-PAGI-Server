@@ -2,7 +2,9 @@
     my $values = $v->{values} // ['', ''];
     my $count = scalar @$values;
     my $max_options = 6;
-    my $show_add = $count < $max_options;
+    # WORKAROUND: reversed comparison to avoid Template::EmbeddedPerl bug
+    # where "< $var" is misinterpreted as readline operator (see TPERLBUGS.md)
+    my $show_add = $max_options > $count;
 %>
 <div class="options-fields">
     <% for my $i (0 .. $#$values) { %>
