@@ -192,7 +192,7 @@
    {
       "category" : "functional",
       "description" : "Step 4: is_htmx() request detection",
-      "passes" : false,
+      "passes" : true,
       "steps" : [
          "Step 1: Create route that checks $c->req->is_htmx",
          "Step 2: Make request without HX-Request header",
@@ -204,7 +204,7 @@
    {
       "category" : "functional",
       "description" : "Step 4: Auto-fragment detection renders without layout for htmx requests",
-      "passes" : false,
+      "passes" : true,
       "steps" : [
          "Step 1: Create route that calls $c->render('page')",
          "Step 2: Make browser request (no HX-Request header)",
@@ -216,7 +216,7 @@
    {
       "category" : "functional",
       "description" : "Step 4: render_or_redirect() helper",
-      "passes" : false,
+      "passes" : true,
       "steps" : [
          "Step 1: Create route using render_or_redirect('/', 'partial', vars)",
          "Step 2: Make browser request",
@@ -228,7 +228,7 @@
    {
       "category" : "functional",
       "description" : "Step 4: empty_or_redirect() helper for delete patterns",
-      "passes" : false,
+      "passes" : true,
       "steps" : [
          "Step 1: Create route using empty_or_redirect('/')",
          "Step 2: Make browser request",
@@ -240,7 +240,7 @@
    {
       "category" : "functional",
       "description" : "Step 4: hx_trigger() response header",
-      "passes" : false,
+      "passes" : true,
       "steps" : [
          "Step 1: Create route that calls $c->hx_trigger('todoAdded')",
          "Step 2: Make request",
@@ -252,7 +252,7 @@
    {
       "category" : "functional",
       "description" : "Step 4: htmx_target() and htmx_current_url() request accessors",
-      "passes" : false,
+      "passes" : true,
       "steps" : [
          "Step 1: Create route checking $c->req->htmx_target",
          "Step 2: Make request with HX-Target header",
@@ -296,7 +296,7 @@
    {
       "category" : "functional",
       "description" : "Step 6: route() helper generates URLs from named routes",
-      "passes" : false,
+      "passes" : true,
       "steps" : [
          "Step 1: Define named route: $app->get('/users/:id' => sub {})->name('user_show')",
          "Step 2: In template use <%= route('user_show', id => 123) %>",
@@ -306,7 +306,7 @@
    {
       "category" : "functional",
       "description" : "Step 6: route() with query parameters",
-      "passes" : false,
+      "passes" : true,
       "steps" : [
          "Step 1: Define named route: $app->get('/search' => sub {})->name('search')",
          "Step 2: Call route('search', query => { q => 'perl', page => 2 })",
@@ -316,7 +316,7 @@
    {
       "category" : "functional",
       "description" : "Step 6: route() integration with hx_* helpers",
-      "passes" : false,
+      "passes" : true,
       "steps" : [
          "Step 1: Define named route todo_delete",
          "Step 2: Use <%= hx_delete(route('todo_delete', id => 1)) %>",

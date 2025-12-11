@@ -361,3 +361,121 @@ Templates can now use htmx helpers like this:
 
 Branch: pagi-simple-view
 Changes: New test file and modified Htmx.pm need to be committed
+
+---
+
+# Claude Code Progress - Session 5
+
+## Date: 2025-12-11
+
+## Summary
+
+Completed Step 4 of the PAGI::Simple View layer implementation. All htmx auto-fragment
+detection and response helper features are now verified with comprehensive tests.
+
+## Completed Tasks
+
+### 1. Created Comprehensive Step 4 Test Suite
+
+Created t/simple/37-htmx-features.t with 19 subtests covering:
+- is_htmx() request detection (with/without HX-Request header)
+- htmx_target() accessor
+- htmx_current_url() accessor
+- htmx_trigger() and htmx_trigger_name() accessors
+- htmx_prompt() accessor
+- htmx_boosted() accessor
+- hx_trigger() response header (simple event)
+- hx_trigger() response header (event with data/JSON)
+- hx_redirect() response header
+- hx_refresh() response header
+- render_or_redirect() - browser gets redirect
+- render_or_redirect() - htmx gets rendered template
+- empty_or_redirect() - browser gets redirect
+- empty_or_redirect() - htmx gets empty 200 response
+- Auto-fragment detection - browser gets full layout
+- Auto-fragment detection - htmx gets content only (no layout)
+- Method chaining for hx_* methods
+- Force layout on for htmx request (layout => 1)
+- Force layout off for browser request (layout => 0)
+
+### 2. All Tests Pass
+
+- 646 tests across 38 test files in t/simple/
+- 113 tests across 15 core test files
+- All existing functionality preserved
+
+## Files Created
+
+- t/simple/37-htmx-features.t (19 comprehensive Step 4 tests)
+
+## Files Modified
+
+- feature_list.json (6 more features now passing: 24 total)
+- claude-progress.txt (this file)
+
+## Feature List Progress
+
+- Total features: 97
+- Passing: 24 (up from 18)
+- Remaining: 73
+
+Step 4 Features Completed:
+- ✅ is_htmx() request detection
+- ✅ Auto-fragment detection (renders without layout for htmx)
+- ✅ render_or_redirect() helper
+- ✅ empty_or_redirect() helper for delete patterns
+- ✅ hx_trigger() response header
+- ✅ htmx_target() and htmx_current_url() request accessors
+
+## Next Session Should Focus On
+
+1. **Step 5: TO_HTML Protocol** - Object self-rendering
+2. **Step 6: Named Routes** - route() helper with URL generation
+3. **Step 7: Model System** - Model auto-discovery and configuration
+
+## Git Status
+
+Branch: pagi-simple-view
+Changes: New test file (t/simple/37-htmx-features.t) and feature_list.json updates
+
+---
+
+# Claude Code Progress - Session 5 (continued)
+
+## Additional Work
+
+### Step 5: TO_HTML Protocol - SKIPPED
+
+After discussion, decided to skip TO_HTML protocol implementation because:
+- Objects often have multiple valid HTML representations (table row vs card vs dropdown)
+- Tight coupling between model and presentation layer
+- Hidden magic that's not obvious to developers
+- Explicit `include()` is clearer and more flexible
+
+Alternatives like presenter patterns or explicit includes are preferred.
+
+### Step 6: Named Routes - Verified
+
+Verified existing implementation and wrote comprehensive tests:
+- url_for() generates URLs from named routes
+- Query parameter support works
+- route() helper works in templates
+- Integration with hx_* helpers works
+
+Created t/simple/38-named-routes.t with 7 subtests.
+
+## Feature List Progress
+
+- Total features: 97
+- Passing: 27 (up from 24)
+- Remaining: 70
+
+Step 6 Features Completed:
+- route() helper generates URLs from named routes
+- route() with query parameters
+- route() integration with hx_* helpers
+
+## Next Session Should Focus On
+
+1. **Step 7: Model System** - Model auto-discovery and configuration
+2. **Step 8+: Example Apps** - Todo app, User CRUD, etc.
