@@ -427,7 +427,7 @@ The StructuredParams object provides Rails-style strong parameters:
 
     my $data = (await $c->structured_body)
         ->namespace('my_app_model_order')
-        ->permitted('customer_name', 'email', +{line_items => ['product', 'qty']})
+        ->permitted('customer_name', 'email', +{line_items => ['product', 'quantity']})
         ->skip('_destroy')
         ->to_hash;
 

@@ -20,7 +20,7 @@ PAGI::Simple::StructuredParams - Rails-style strong parameters for PAGI::Simple
             ->namespace('my_app_model_order')
             ->permitted(
                 'customer_name', 'customer_email', 'notes',
-                +{line_items => ['product', 'qty', 'unit_price', '_destroy']}
+                +{line_items => ['product', 'quantity', 'unit_price', '_destroy']}
             )
             ->skip('_destroy')
             ->required('customer_name', 'customer_email')
@@ -131,7 +131,7 @@ sub namespace ($self, $ns = undef) {
     $sp->permitted(+{tags => []});
 
     # Array of hashes
-    $sp->permitted(+{line_items => ['product', 'qty', 'price']});
+    $sp->permitted(+{line_items => ['product', 'quantity', 'price']});
 
 Whitelist which fields are allowed through. Only specified fields will be
 included in the final C<to_hash()> output.
@@ -589,14 +589,14 @@ When the same key appears multiple times:
         ->namespace('my_app_model_order')
         ->permitted(
             'customer_name',
-            +{line_items => ['product', 'qty']}
+            +{line_items => ['product', 'quantity']}
         )
         ->to_hash;
     # {
     #     customer_name => 'John',
     #     line_items => [
-    #         {product => 'Widget', qty => 5},
-    #         {product => 'Gadget', qty => 3},
+    #         {product => 'Widget', quantity => 5},
+    #         {product => 'Gadget', quantity => 3},
     #     ]
     # }
 
