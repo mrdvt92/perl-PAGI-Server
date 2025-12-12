@@ -23,9 +23,8 @@ use Future::AsyncAwait;
 use PAGI::Simple;
 
 my $app = PAGI::Simple->new(
-    name      => 'Valiant Forms Demo',
-    namespace => 'MyApp',
-    share     => 'htmx',
+    name  => 'Valiant Forms Demo',
+    share => 'htmx',
     views     => {
         directory => './templates',
         roles     => ['PAGI::Simple::View::Role::Valiant'],
@@ -55,7 +54,7 @@ $app->post('/orders' => async sub ($c) {
 
     # Use structured params for Rails-style strong parameters
     my $data = (await $c->structured_body)
-        ->namespace('my_app_model_order')
+        ->namespace('valiant_forms_demo_model_order')
         ->permitted(
             'customer_name', 'customer_email', 'notes',
             +{line_items => ['product', 'quantity', 'unit_price', '_destroy']}
@@ -123,7 +122,7 @@ $app->post('/orders/:id' => async sub ($c) {
 
     # Use structured params for Rails-style strong parameters
     my $data = (await $c->structured_body)
-        ->namespace('my_app_model_order')
+        ->namespace('valiant_forms_demo_model_order')
         ->permitted(
             'customer_name', 'customer_email', 'notes',
             +{line_items => ['product', 'quantity', 'unit_price', '_destroy']}
@@ -201,8 +200,8 @@ $app->get('/orders/line_item' => sub ($c) {
 $app->post('/validate/order/:field' => async sub ($c) {
     my $field = $c->path_params->{field};
     my $params = await $c->params;
-    # Valiant FormBuilder namespaces fields as my_app_model_order.*
-    my $prefix = 'my_app_model_order';
+    # Valiant FormBuilder namespaces fields as valiant_forms_demo_model_order.*
+    my $prefix = 'valiant_forms_demo_model_order';
     my $value = $params->get("$prefix.$field") // '';
 
     my @errors = $c->service('Order')->validate_field($field, $value);

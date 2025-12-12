@@ -1,15 +1,15 @@
-package MyApp::Service::Order;
+package ValiantFormsDemo::Service::Order;
 
 use strict;
 use warnings;
 use experimental 'signatures';
 use parent 'PAGI::Simple::Service::PerApp';
 
-use MyApp::Model::Order;
-use MyApp::Model::LineItem;
+use ValiantFormsDemo::Model::Order;
+use ValiantFormsDemo::Model::LineItem;
 
 # =============================================================================
-# MyApp::Service::Order - Order data operations
+# ValiantFormsDemo::Service::Order - Order data operations
 # =============================================================================
 #
 # This is a PerApp service (singleton) because:
@@ -43,7 +43,7 @@ sub find ($self, $id) {
 }
 
 sub create ($self, $data) {
-    my $order = MyApp::Model::Order->new(
+    my $order = ValiantFormsDemo::Model::Order->new(
         customer_name  => $data->{customer_name} // '',
         customer_email => $data->{customer_email} // '',
         notes          => $data->{notes} // '',
@@ -83,7 +83,7 @@ sub count ($self) {
 
 # Build an order from data without saving (for form re-rendering on validation failure)
 sub build ($self, $data = {}) {
-    my $order = MyApp::Model::Order->new(
+    my $order = ValiantFormsDemo::Model::Order->new(
         customer_name  => $data->{customer_name} // '',
         customer_email => $data->{customer_email} // '',
         notes          => $data->{notes} // '',
@@ -94,19 +94,19 @@ sub build ($self, $data = {}) {
 
 # Create a new blank order (for new order forms)
 sub new_order ($self) {
-    my $order = MyApp::Model::Order->new;
+    my $order = ValiantFormsDemo::Model::Order->new;
     $order->add_line_item();  # Start with one empty line item
     return $order;
 }
 
 # Create a new blank line item (for htmx partials)
 sub new_line_item ($self) {
-    return MyApp::Model::LineItem->new;
+    return ValiantFormsDemo::Model::LineItem->new;
 }
 
 # Validate a single field (for inline validation)
 sub validate_field ($self, $field, $value) {
-    my $order = MyApp::Model::Order->new($field => $value);
+    my $order = ValiantFormsDemo::Model::Order->new($field => $value);
     $order->validate;
     return $order->errors->messages_for($field);
 }
