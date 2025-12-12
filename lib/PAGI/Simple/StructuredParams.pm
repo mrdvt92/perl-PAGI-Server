@@ -52,11 +52,16 @@ sub skip ($self, @fields) {
 sub to_hash ($self) {
     my $filtered_mv = $self->_apply_namespace();  # Returns Hash::MultiValue
 
-    # Store for D1 handling in _apply_permitted() (Step 3)
+    # Store for D1 handling in _apply_permitted()
     $self->{_filtered_mv} = $filtered_mv;
 
     my $nested = $self->_build_nested($filtered_mv);
-    # Whitelisting comes in Step 3
+
+    # Step 3: Apply whitelisting if rules are present
+    if (@{$self->{_permitted_rules}}) {
+        $nested = $self->_apply_permitted($nested, $self->{_permitted_rules});
+    }
+
     return $nested;
 }
 
@@ -212,6 +217,76 @@ sub _set_nested_value ($self, $root, $parts, $value) {
             }
         }
     }
+}
+
+# Step 3: Whitelisting (permitted rules)
+
+# Apply permitted rules to filter the nested data structure
+# Rules format:
+#   'field'              - Allow scalar field
+#   'field', [...]       - Allow nested hash with sub-rules
+#   +{field => []}       - Allow array of scalars (D1: preserves duplicates)
+#   +{field => ['a','b']} - Allow array of hashes with specified fields
+sub _apply_permitted ($self, $data, $rules, $key_path = '') {
+    return {} unless ref($data) eq 'HASH';
+    return $data unless @$rules;  # No rules = pass all (for nested)
+
+    my %result;
+    my $i = 0;
+
+    while ($i < @$rules) {
+        my $rule = $rules->[$i];
+
+        if (ref($rule) eq 'HASH') {
+            # +{field => [...]} - Array of hashes or array of scalars
+            for my $field (keys %$rule) {
+                my $sub_rules = $rule->{$field};
+                my $full_key = $key_path ? "$key_path.$field" : $field;
+
+                if (@$sub_rules == 0) {
+                    # +{field => []} - Array of SCALARS
+                    # D1: Use get_all() to preserve all duplicate values
+                    my @values = $self->{_filtered_mv}->get_all($full_key);
+                    $result{$field} = \@values if @values;
+                } elsif (exists $data->{$field} && ref($data->{$field}) eq 'ARRAY') {
+                    # +{field => ['a', 'b']} - Array of hashes
+                    # Preserve sparse array indices
+                    my @filtered_items;
+                    my $source = $data->{$field};
+                    for my $idx (0 .. $#$source) {
+                        my $item = $source->[$idx];
+                        if (defined $item && ref($item) eq 'HASH') {
+                            my $item_path = "$full_key\[$idx]";
+                            $filtered_items[$idx] = $self->_apply_permitted($item, $sub_rules, $item_path);
+                        }
+                        # undef items stay undef (preserving sparse array)
+                    }
+                    $result{$field} = \@filtered_items if @filtered_items;
+                }
+            }
+            $i++;
+        } elsif (!ref($rule)) {
+            # Scalar field or nested hash
+            if ($i + 1 <= $#$rules && ref($rules->[$i + 1]) eq 'ARRAY') {
+                # field => [...] - Nested hash
+                if (exists $data->{$rule} && ref($data->{$rule}) eq 'HASH') {
+                    my $full_key = $key_path ? "$key_path.$rule" : $rule;
+                    $result{$rule} = $self->_apply_permitted(
+                        $data->{$rule}, $rules->[$i + 1], $full_key
+                    );
+                }
+                $i += 2;
+            } else {
+                # Simple scalar - D1: last value wins (already in $data from _build_nested)
+                $result{$rule} = $data->{$rule} if exists $data->{$rule};
+                $i++;
+            }
+        } else {
+            $i++;
+        }
+    }
+
+    return \%result;
 }
 
 1;
