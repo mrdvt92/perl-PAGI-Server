@@ -5,7 +5,7 @@ This document contains a comprehensive audit of PAGI::Server identifying issues 
 **Audit Date:** 2024-12-14
 **Files Audited:** `lib/PAGI/Server.pm`, `lib/PAGI/Server/*.pm`
 **Total Issues Found:** 29 (5 Critical, 3 High, 17 Medium, 4 Low)
-**Issues Fixed:** 15 (1.1-1.5, 2.1, 2.3, 2.4, 2.5, 3.3, 3.5, 3.7, 3.8, 3.9, 3.10)
+**Issues Fixed:** 16 (1.1-1.5, 2.1, 2.3, 2.4, 2.5, 3.3, 3.5, 3.6, 3.7, 3.8, 3.9, 3.10)
 **Issues Removed:** 3 (1.6, 2.2, 3.4 - not real issues)
 
 ---
@@ -551,33 +551,42 @@ parameter to reject oversized frames before they can cause issues.
 
 ### 3.6 TLS Info Extraction Silent Failures
 
-**Status:** NOT FIXED
+**Status:** FIXED (2024-12-14)
 **File:** `lib/PAGI/Server/Connection.pm`
-**Lines:** 888-934
+**Lines:** 950-1024
 
 **Problem:**
-Multiple eval blocks swallow errors silently.
+Multiple eval blocks swallow errors silently, making TLS debugging impossible.
 
-**Current Code:**
-```perl
-# Connection.pm lines 888-934
-eval {
-    my $cert = $handle->get_servercert;
-    # ... code that might fail ...
-};
-# No error handling - errors silently ignored
-```
+**Fix Applied:**
+Added error logging and storage for all three TLS extraction blocks:
 
-**Recommended Fix:**
 ```perl
-eval {
-    # ... TLS extraction code ...
-};
+# Cipher suite extraction
+eval { ... };
 if ($@) {
-    warn "TLS info extraction error: $@\n";
-    $tls_info->{extraction_error} = $@;
+    warn "TLS cipher suite extraction error: $@\n";
+    $tls_info->{cipher_extraction_error} = $@;
+}
+
+# Server certificate extraction
+eval { ... };
+if ($@) {
+    warn "TLS server certificate extraction error: $@\n";
+    $tls_info->{server_cert_error} = $@;
+}
+
+# Client certificate extraction
+eval { ... };
+if ($@) {
+    warn "TLS client certificate extraction error: $@\n";
+    $tls_info->{client_cert_extraction_error} = $@;
 }
 ```
+
+Errors are now:
+1. Logged to STDERR with `warn` for visibility
+2. Stored in `$tls_info` for programmatic access
 
 ---
 
