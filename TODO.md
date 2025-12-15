@@ -16,6 +16,13 @@
   - Defense against slow memory growth (~6.5 bytes/request observed)
   - For multi-worker mode: restart individual workers after N requests
   - Low priority - current growth is negligible (~6.5 MB per 1M requests)
+- Request/body timeouts (low priority)
+  - Request timeout: max time to complete entire request (headers + body)
+  - Body timeout: max time for body after headers received
+  - Current idle timeout (60s) handles most cases
+  - Async model means slow clients don't block others
+  - Typically handled by nginx/HAProxy in production
+  - Only needed if running without reverse proxy and facing abuse
 
 ### Performance: Buffered Access Logging
 

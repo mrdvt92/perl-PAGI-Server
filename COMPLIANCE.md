@@ -562,11 +562,12 @@ Full HTML reports available at: `autobahn-reports/index.html`
 
 ## Recommendations
 
-### Consider Adding (Defense in Depth)
+### Consider Adding (Low Priority)
 
 1. **Request timeout**: Close connections that don't complete request within N seconds.
-2. **Per-IP connection limits**: Limit concurrent connections from single IP.
-3. **Request body timeout**: Close connections with slow body uploads.
+2. **Request body timeout**: Close connections with slow body uploads.
+
+Note: Per-IP connection limits are best handled at the reverse proxy layer (nginx, HAProxy) or firewall level, not the application server.
 
 ### Already Implemented
 
