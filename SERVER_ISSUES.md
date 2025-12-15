@@ -5,7 +5,7 @@ This document contains a comprehensive audit of PAGI::Server identifying issues 
 **Audit Date:** 2024-12-14
 **Files Audited:** `lib/PAGI/Server.pm`, `lib/PAGI/Server/*.pm`
 **Total Issues Found:** 29 (5 Critical, 3 High, 17 Medium, 4 Low)
-**Issues Fixed:** 21 (1.1-1.5, 2.1, 2.3, 2.4, 2.5, 3.3, 3.5, 3.6, 3.7, 3.8, 3.9, 3.10, 3.12, 3.15, 3.16, 4.2, 4.4)
+**Issues Fixed:** 24 (1.1-1.5, 2.1, 2.3, 2.4, 2.5, 3.1, 3.2, 3.3, 3.5, 3.6, 3.7, 3.8, 3.9, 3.10, 3.12, 3.15, 3.16, 3.17, 4.2, 4.4)
 **Issues Removed:** 4 (1.6, 2.2, 3.4, 4.3 - not real issues)
 
 ---
@@ -381,62 +381,56 @@ The theoretical edge case (Server destroyed while loop running) doesn't occur in
 
 ### 3.1 WebSocket Frame Parser Memory Leak
 
-**Status:** NOT FIXED
+**Status:** FIXED (2024-12-15)
 **File:** `lib/PAGI/Server/Connection.pm`
-**Line:** 1390
+**Line:** 879
 
 **Problem:**
-WebSocket frame parser accumulates state and is never explicitly freed.
+WebSocket frame parser accumulates state and was never explicitly freed in _close().
 
-**Current Code:**
+**Fix Applied:**
 ```perl
-# Connection.pm line 1390
-$weak_self->{websocket_frame} = Protocol::WebSocket::Frame->new;
-# Never cleared in _close()
+sub _close ($self) {
+    return if $self->{closed};
+    $self->{closed} = 1;
+
+    # Clean up WebSocket frame parser to free memory immediately
+    delete $self->{websocket_frame};
+    # ... rest of cleanup
+}
 ```
 
-**Recommended Fix:**
-In `_close()` method, add:
-```perl
-delete $self->{websocket_frame};
-```
+**Test:** `t/23-connection-cleanup.t`
 
 ---
 
 ### 3.2 Connection Not Removed from List on Exception
 
-**Status:** NOT FIXED
+**Status:** FIXED (2024-12-15)
 **File:** `lib/PAGI/Server/Connection.pm`
-**Lines:** 276-284
+**Lines:** 326-340
 
 **Problem:**
-If application throws exception, connection object stays in server's connection list.
+If application throws exception, connection stayed open (especially with keep-alive),
+leaving it in the server's connection list.
 
-**Current Code:**
+**Fix Applied:**
 ```perl
-# Connection.pm lines 276-284
-eval {
-    await $self->{app}->($scope, $receive, $send);
-};
 if (my $error = $@) {
-    $self->_send_error_response(500, "Internal Server Error");
-    warn "PAGI application error: $error\n";
-}
-# Connection might not be closed/removed
-```
-
-**Recommended Fix:**
-```perl
-eval {
-    await $self->{app}->($scope, $receive, $send);
-};
-if (my $error = $@) {
-    $self->_send_error_response(500, "Internal Server Error");
-    warn "PAGI application error: $error\n";
-    $self->_close();  # Ensure cleanup
+    # Handle application error - always close connection after exception
+    if ($self->{response_started}) {
+        warn "PAGI application error (after response started): $error\n";
+    } else {
+        $self->_send_error_response(500, "Internal Server Error");
+        warn "PAGI application error: $error\n";
+    }
+    $self->_write_access_log;
+    $self->_close;  # Always close - don't try keep-alive after exception
     return;
 }
 ```
+
+**Test:** `t/23-connection-cleanup.t`
 
 ---
 
@@ -853,34 +847,33 @@ Default limit is 8KB per RFC 7230 recommendation. Configurable via constructor.
 
 ### 3.17 Application Error After Response Started
 
-**Status:** NOT FIXED
+**Status:** FIXED (2024-12-15)
 **File:** `lib/PAGI/Server/Connection.pm`
-**Lines:** 276-284
+**Lines:** 326-340
 
 **Problem:**
-If app throws after `http.response.start`, error response can't be sent (already started).
+If app throws after `http.response.start`, error response can't be sent, but connection
+was left open in a broken state.
 
-**Current Code:**
-```perl
-if (my $error = $@) {
-    $self->_send_error_response(500, "Internal Server Error");
-    # _send_error_response returns early if response already started
-}
-```
-
-**Recommended Fix:**
-Track response state and handle appropriately:
+**Fix Applied:**
+Same fix as 3.2 - the exception handler now checks `$self->{response_started}` and
+handles both cases appropriately:
 ```perl
 if (my $error = $@) {
     if ($self->{response_started}) {
-        # Can't send error page - just close connection
-        warn "Application error after response started: $error\n";
-        $self->_close();
+        # Can't send error page - log and close
+        warn "PAGI application error (after response started): $error\n";
     } else {
         $self->_send_error_response(500, "Internal Server Error");
+        warn "PAGI application error: $error\n";
     }
+    $self->_write_access_log;
+    $self->_close;  # Always close connection after exception
+    return;
 }
 ```
+
+**Test:** `t/23-connection-cleanup.t`
 
 ---
 
@@ -1041,8 +1034,8 @@ Validates cert_file, key_file, and ca_file existence and readability in construc
 | 2.3 | HIGH | Stability | Worker startup exceptions |
 | 2.4 | HIGH | Stability | No graceful shutdown |
 | 2.5 | HIGH | Stability | Worker respawn race |
-| 3.1 | MEDIUM | Memory | WebSocket parser leak |
-| 3.2 | MEDIUM | Memory | Connection list cleanup |
+| 3.1 | MEDIUM | Memory | ~~WebSocket parser leak~~ FIXED |
+| 3.2 | MEDIUM | Memory | ~~Connection list cleanup~~ FIXED |
 | 3.3 | MEDIUM | DoS | Unbounded receive queue |
 | 3.4 | MEDIUM | Crash | Negative buffer index |
 | 3.5 | MEDIUM | Crash | Uncaught callback exception |
@@ -1057,7 +1050,7 @@ Validates cert_file, key_file, and ca_file existence and readability in construc
 | 3.14 | MEDIUM | Resource | Zombie workers |
 | 3.15 | MEDIUM | Compat | ~~HTTP/1.0 keep-alive~~ FIXED |
 | 3.16 | MEDIUM | DoS | ~~No request line limit~~ FIXED |
-| 3.17 | MEDIUM | Stability | Error after response start |
+| 3.17 | MEDIUM | Stability | ~~Error after response start~~ FIXED |
 | 4.1 | LOW | Memory | TLS cert data storage |
 | 4.2 | LOW | Compat | ~~Missing Server header~~ FIXED |
 | 4.3 | LOW | Perf | ~~String concatenation~~ NOT AN ISSUE |
