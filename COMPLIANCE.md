@@ -567,7 +567,6 @@ Full HTML reports available at: `autobahn-reports/index.html`
 1. **Request timeout**: Close connections that don't complete request within N seconds.
 2. **Per-IP connection limits**: Limit concurrent connections from single IP.
 3. **Request body timeout**: Close connections with slow body uploads.
-4. **Header count limit**: Reject requests with excessive header count.
 
 ### Already Implemented
 
@@ -580,6 +579,7 @@ Full HTML reports available at: `autobahn-reports/index.html`
 - Control character rejection in headers - returns 400
 - WebSocket frame size limit (--max-ws-frame-size)
 - WebSocket receive queue limit (--max-receive-queue)
+- Header count limit (max_header_count, default 100) - returns 431
 
 ---
 
