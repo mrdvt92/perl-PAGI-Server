@@ -2513,6 +2513,14 @@ If the string starts with C<::>, the current package name is prepended.
 The mounted app has access to C<< $c->mount_path >> (the mount prefix)
 and C<< $c->local_path >> (the path without the prefix).
 
+B<Inside groups:> When called inside a C<group()> block, the group prefix
+is automatically prepended to the mount prefix:
+
+    $app->group('/api' => sub ($app) {
+        $app->mount('/todos' => '::Todos');  # mounts at /api/todos
+        $app->mount('/users' => '::Users');  # mounts at /api/users
+    });
+
 Returns C<$app> for chaining.
 
 =cut
@@ -2531,6 +2539,11 @@ sub mount ($self, $prefix, $sub_app, @args) {
     # Normalize prefix - ensure it starts with / and doesn't end with /
     $prefix =~ s{/$}{};  # Remove trailing slash
     $prefix = "/$prefix" unless $prefix =~ m{^/};
+
+    # Prepend current group prefix if inside a group
+    if ($self->{_prefix}) {
+        $prefix = $self->{_prefix} . $prefix;
+    }
 
     # Handle string class names
     if (!ref($sub_app) && $sub_app =~ /^[A-Za-z_:]/) {

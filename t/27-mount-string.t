@@ -142,4 +142,42 @@ subtest 'existing mount behaviors preserved' => sub {
     is(scalar @{$app->{_mounted_apps}}, 2, 'both mounted');
 };
 
+# Test 7: Mount inside group respects group prefix
+subtest 'mount inside group respects prefix' => sub {
+    my $app = PAGI::Simple->new(name => 'Main', quiet => 1);
+
+    $app->group('/api' => sub ($app) {
+        $app->mount('/todos' => 'FullyQualified::API');
+    });
+
+    is(scalar @{$app->{_mounted_apps}}, 1, 'one app mounted');
+    is($app->{_mounted_apps}[0]{prefix}, '/api/todos',
+        'mount prefix includes group prefix');
+};
+
+# Test 8: Nested groups with mount
+subtest 'nested groups with mount' => sub {
+    my $app = PAGI::Simple->new(name => 'Main', quiet => 1);
+
+    $app->group('/api' => sub ($app) {
+        $app->group('/v1' => sub ($app) {
+            $app->mount('/users' => 'FullyQualified::API');
+        });
+    });
+
+    is(scalar @{$app->{_mounted_apps}}, 1, 'one app mounted');
+    is($app->{_mounted_apps}[0]{prefix}, '/api/v1/users',
+        'mount prefix includes all nested group prefixes');
+};
+
+# Test 9: Mount outside group still works (no prefix)
+subtest 'mount outside group has no extra prefix' => sub {
+    my $app = PAGI::Simple->new(name => 'Main', quiet => 1);
+
+    $app->mount('/standalone' => 'FullyQualified::API');
+
+    is($app->{_mounted_apps}[0]{prefix}, '/standalone',
+        'mount outside group has literal prefix');
+};
+
 done_testing;
