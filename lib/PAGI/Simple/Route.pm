@@ -3,6 +3,7 @@ package PAGI::Simple::Route;
 use strict;
 use warnings;
 use experimental 'signatures';
+use Scalar::Util 'weaken';
 
 our $VERSION = '0.01';
 
@@ -51,10 +52,14 @@ sub new ($class, %args) {
         middleware       => $args{middleware} // [],  # Array of middleware names
         handler_methods  => $args{handler_methods} // [],
         handler_instance => $args{handler_instance},
+        router           => $args{router},  # Reference back to router for name registration
         _param_names     => [],
         _regex           => undef,
         _is_static       => 1,
     }, $class;
+
+    # Weaken router reference to avoid circular reference memory leak
+    weaken($self->{router}) if $self->{router};
 
     # Compile path pattern into regex
     $self->_compile_pattern($path);
@@ -148,12 +153,22 @@ sub handler ($self) {
 =head2 name
 
     my $name = $route->name;
+    $route->name('route_name');  # setter, returns $self for chaining
 
-Returns the optional name for this route.
+Returns or sets the optional name for this route.
+When called with an argument, sets the name and returns $self for chaining.
 
 =cut
 
-sub name ($self) {
+sub name ($self, $name = undef) {
+    if (defined $name) {
+        $self->{name} = $name;
+        # Register with router if we have one
+        if ($self->{router}) {
+            $self->{router}->register_name($name, $self);
+        }
+        return $self;
+    }
     return $self->{name};
 }
 

@@ -239,8 +239,8 @@ subtest 'hooks receive context' => sub {
 
     ok($before_ctx->isa('PAGI::Simple::Context'), 'before hook gets Context');
     ok($after_ctx->isa('PAGI::Simple::Context'), 'after hook gets Context');
-    is($before_ctx, $handler_ctx, 'same context in before and handler');
-    is($after_ctx, $handler_ctx, 'same context in after and handler');
+    ok($before_ctx == $handler_ctx, 'same context in before and handler');
+    ok($after_ctx == $handler_ctx, 'same context in after and handler');
 };
 
 # Test 11: hook returns $app for chaining
@@ -249,7 +249,7 @@ subtest 'hook returns app for chaining' => sub {
 
     my $result = $app->hook(before => sub ($c) { });
 
-    is($result, $app, 'hook returns $app');
+    ok($result == $app, 'hook returns $app');
 };
 
 # Test 12: invalid hook type dies

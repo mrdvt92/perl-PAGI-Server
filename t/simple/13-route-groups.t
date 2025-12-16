@@ -287,7 +287,7 @@ subtest 'group returns app for chaining' => sub {
         $app->get('/test' => sub ($c) { $c->text('ok') });
     });
 
-    is($result, $app, 'group returns $app');
+    ok($result == $app, 'group returns $app');  # Reference identity, not deep comparison
 };
 
 # Test 12: Chaining groups
