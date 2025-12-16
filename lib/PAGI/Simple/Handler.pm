@@ -23,13 +23,13 @@ PAGI::Simple::Handler - Base class for controller-like route handlers
     }
 
     async sub index ($self, $c) {
-        my $todos = $c->app->service('Todo')->all;
+        my $todos = $c->service('Todo')->all;
         $c->json({ todos => $todos });
     }
 
     async sub show ($self, $c) {
         my $id = $c->param('id');
-        my $todo = $c->app->service('Todo')->find($id);
+        my $todo = $c->service('Todo')->find($id);
         $c->json($todo);
     }
 
@@ -118,7 +118,7 @@ Handler methods receive C<$self> (the handler instance) and C<$c> (the request c
         # $c    - PAGI::Simple::Context
         # $c->app - root Application (for services)
 
-        my $todos = $c->app->service('Todo')->all;
+        my $todos = $c->service('Todo')->all;
         $c->json({ todos => $todos });
     }
 
@@ -135,7 +135,7 @@ The C<load> method runs first, then C<show>. If C<load> sends a response
 (e.g., 404 not found), the chain stops.
 
     async sub load ($self, $c) {
-        my $todo = $c->app->service('Todo')->find($c->param('id'));
+        my $todo = $c->service('Todo')->find($c->param('id'));
         return $c->not_found unless $todo;
         $c->stash->{todo} = $todo;
     }

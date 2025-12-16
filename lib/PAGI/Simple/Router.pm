@@ -56,12 +56,50 @@ sub new ($class) {
 
     $router->add($method, $path, $handler);
     $router->add($method, $path, $handler, %options);
+    $router->add($method, $path, '#method1' => '#method2');
 
 Add a route to the router. Returns the created Route object.
 
+The C<$handler> can be:
+
+=over 4
+
+=item * A coderef: C<< sub ($c) { ... } >>
+
+=item * One or more C<#method> strings (requires C<handler_instance>)
+
+=back
+
+The C<#method> syntax references methods on a handler instance. Multiple
+C<#method> arguments create a middleware chain that executes in order.
+This is primarily used with L<PAGI::Simple::Handler> classes:
+
+    # In a Handler's routes() method:
+    $r->get('/:id' => '#load' => '#show');
+
+    # Equivalent to:
+    async sub load ($self, $c) {
+        # Load and validate
+        $c->stash->{item} = ...;
+    }
+    async sub show ($self, $c) {
+        # Use pre-loaded data
+        $c->json($c->stash->{item});
+    }
+
 Options:
-- name: Optional route name
-- middleware: Arrayref of middleware names
+
+=over 4
+
+=item * C<name> - Optional route name for URL generation
+
+=item * C<middleware> - Arrayref of middleware names
+
+=item * C<handler_instance> - Required when using C<#method> syntax; the
+object on which methods will be called. Automatically set by
+L<PAGI::Simple::Handler> when mounting.
+
+=back
 
 =cut
 

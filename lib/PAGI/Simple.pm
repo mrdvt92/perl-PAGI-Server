@@ -2878,6 +2878,86 @@ sub any ($self, @args) { return $self->{app}->any(@args); }
 
 package PAGI::Simple;
 
+=head1 ORGANIZING LARGER APPLICATIONS
+
+For applications beyond a single file, PAGI::Simple supports class-based
+organization with Handlers.
+
+=head2 Class-Based App Structure
+
+    # lib/MyApp.pm
+    package MyApp;
+    use parent 'PAGI::Simple';
+    use experimental 'signatures';
+
+    sub init ($class) {
+        return (
+            name  => 'MyApp',
+            views => 'templates',
+            share => 'htmx',
+        );
+    }
+
+    sub routes ($class, $app, $r) {
+        $r->mount('/todos' => '::Todos');
+        $r->mount('/users' => '::Users', ['auth']);
+    }
+
+    1;
+
+    # app.pl
+    use lib 'lib';
+    use MyApp;
+    MyApp->new->to_app;
+
+=head2 Handlers
+
+Handlers are controller-like classes that share the root Application:
+
+    # lib/MyApp/Todos.pm
+    package MyApp::Todos;
+    use parent 'PAGI::Simple::Handler';
+    use experimental 'signatures';
+    use Future::AsyncAwait;
+
+    sub routes ($class, $app, $r) {
+        $r->get('/' => '#index');
+        $r->get('/:id' => '#load' => '#show');
+        $r->post('/' => '#create');
+    }
+
+    async sub load ($self, $c) {
+        my $todo = $c->service('Todo')->find($c->param('id'));
+        return $c->not_found unless $todo;
+        $c->stash->{todo} = $todo;
+    }
+
+    async sub index ($self, $c) {
+        $c->json({ todos => [$c->service('Todo')->all] });
+    }
+
+    async sub show ($self, $c) {
+        $c->json($c->stash->{todo});
+    }
+
+    1;
+
+Key points:
+
+=over 4
+
+=item * C<< $c->app >> always returns the root Application
+
+=item * C<#method> syntax references handler methods
+
+=item * Multiple C<#method>s create a middleware chain
+
+=item * Use C<< $c->stash >> for request-scoped data
+
+=back
+
+See L<PAGI::Simple::Handler> for full documentation.
+
 =head1 UTF-8 HANDLING
 
 =over 4
