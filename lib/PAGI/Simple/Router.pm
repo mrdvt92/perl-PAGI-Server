@@ -146,6 +146,7 @@ sub add ($self, $method, $path, @args) {
         middleware      => $options{middleware} // [],
         handler_methods => $options{handler_methods} // [],
         handler_instance => $options{handler_instance},
+        router          => $self,  # Allow route to register itself when name() is called
     );
 
     push @{$self->{routes}}, $route;
@@ -361,6 +362,7 @@ use experimental 'signatures';
 
 sub new ($class, %args) {
     return bless {
+        app              => $args{app},
         parent           => $args{parent},
         prefix           => $args{prefix},
         handler_instance => $args{handler_instance},
@@ -376,8 +378,43 @@ sub delete ($self, $path, @args) { $self->_add_route('DELETE', $path, @args) }
 sub del ($self, $path, @args) { $self->_add_route('DELETE', $path, @args) }
 sub any ($self, $path, @args) { $self->_add_route('*', $path, @args) }
 
+# Delegate to app with prefix applied
+sub mount ($self, $path, @args) {
+    my $full_path = $self->{prefix} . $path;
+    $full_path =~ s{^//+}{/};
+    $self->{app}->mount($full_path, @args);
+}
+
+sub sse ($self, $path, @args) {
+    my $full_path = $self->{prefix} . $path;
+    $full_path =~ s{^//+}{/};
+
+    # Resolve #method syntax
+    my @resolved_args;
+    for my $arg (@args) {
+        if (!ref($arg) && $arg =~ /^#(\w+)$/) {
+            my $method = $1;
+            my $instance = $self->{handler_instance};
+            push @resolved_args, sub ($sse) {
+                $instance->$method($sse);
+            };
+        } else {
+            push @resolved_args, $arg;
+        }
+    }
+
+    $self->{app}->sse($full_path, @resolved_args);
+}
+
+sub websocket ($self, $path, @args) {
+    my $full_path = $self->{prefix} . $path;
+    $full_path =~ s{^//+}{/};
+    $self->{app}->websocket($full_path, @args);
+}
+
 sub _add_route ($self, $method, $path, @args) {
     my $full_path = $self->{prefix} . $path;
+    $full_path =~ s{^//+}{/};  # Normalize leading double slashes
 
     # Parse args to extract route-level middleware
     my @route_middleware;
