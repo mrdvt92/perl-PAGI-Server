@@ -341,13 +341,30 @@ sub any ($self, $path, @args) { $self->_add_route('*', $path, @args) }
 sub _add_route ($self, $method, $path, @args) {
     my $full_path = $self->{prefix} . $path;
 
-    # Add handler_instance and middleware to args
-    push @args, (
+    # Parse args to extract route-level middleware
+    my @route_middleware;
+    my @other_args;
+
+    for (my $i = 0; $i < @args; $i++) {
+        if (ref($args[$i]) eq 'ARRAY') {
+            # This is route-level middleware
+            @route_middleware = @{$args[$i]};
+        } else {
+            push @other_args, $args[$i];
+        }
+    }
+
+    # Merge mount-level middleware with route-level middleware
+    # Mount-level middleware runs first (outer), then route-level (inner)
+    my @merged_middleware = (@{$self->{middleware}}, @route_middleware);
+
+    # Add handler_instance and merged middleware to args
+    push @other_args, (
         handler_instance => $self->{handler_instance},
-        middleware => $self->{middleware},
+        middleware => \@merged_middleware,
     );
 
-    return $self->{parent}->add($method, $full_path, @args);
+    return $self->{parent}->add($method, $full_path, @other_args);
 }
 
 package PAGI::Simple::Router;
