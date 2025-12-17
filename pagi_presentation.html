@@ -1,0 +1,612 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PAGI: Perl Asynchronous Server Gateway Interface</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+            color: white;
+            overflow: hidden;
+        }
+
+        .presentation-container {
+            width: 100vw;
+            height: 100vh;
+            position: relative;
+        }
+
+        .slide {
+            width: 100%;
+            height: 100%;
+            padding: 60px;
+            display: none;
+            position: absolute;
+            top: 0;
+            left: 0;
+            opacity: 0;
+            transition: opacity 0.5s ease-in-out;
+        }
+
+        .slide.active {
+            display: flex;
+            flex-direction: column;
+            opacity: 1;
+        }
+
+        .slide h1 {
+            font-size: 3.5em;
+            margin-bottom: 30px;
+            text-align: center;
+            color: #ffd700;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+        }
+
+        .slide h2 {
+            font-size: 2.5em;
+            margin-bottom: 25px;
+            color: #87ceeb;
+            border-bottom: 3px solid #ffd700;
+            padding-bottom: 10px;
+        }
+
+        .slide h3 {
+            font-size: 1.8em;
+            margin: 20px 0 15px 0;
+            color: #98fb98;
+        }
+
+        .slide p {
+            font-size: 1.3em;
+            line-height: 1.6;
+            margin-bottom: 20px;
+        }
+
+        .slide ul {
+            font-size: 1.2em;
+            margin-left: 30px;
+            margin-bottom: 20px;
+        }
+
+        .slide li {
+            margin-bottom: 10px;
+            line-height: 1.5;
+        }
+
+        .code-block {
+            background: rgba(0,0,0,0.8);
+            border: 1px solid #ffd700;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 20px 0;
+            font-family: 'Courier New', monospace;
+            font-size: 1.1em;
+            overflow-x: auto;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+        }
+
+        .code-block pre {
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+
+        .navigation {
+            position: fixed;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 20px;
+            z-index: 100;
+        }
+
+        .nav-btn {
+            background: rgba(255,255,255,0.2);
+            border: 2px solid #ffd700;
+            color: white;
+            padding: 12px 24px;
+            border-radius: 25px;
+            cursor: pointer;
+            font-size: 1.1em;
+            transition: all 0.3s ease;
+        }
+
+        .nav-btn:hover {
+            background: rgba(255,215,0,0.3);
+            transform: translateY(-2px);
+        }
+
+        .nav-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .slide-counter {
+            position: fixed;
+            top: 30px;
+            right: 30px;
+            background: rgba(0,0,0,0.7);
+            padding: 10px 20px;
+            border-radius: 20px;
+            font-size: 1.1em;
+            z-index: 100;
+        }
+
+        .comparison-container {
+            display: flex;
+            gap: 30px;
+            margin-top: 20px;
+        }
+
+        .comparison-box {
+            flex: 1;
+            background: rgba(0,0,0,0.4);
+            padding: 20px;
+            border-radius: 10px;
+            border: 2px solid #87ceeb;
+        }
+
+        .highlight {
+            background: rgba(255,215,0,0.3);
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-weight: bold;
+        }
+
+        .problem-box {
+            background: rgba(220,20,60,0.2);
+            border: 2px solid #dc143c;
+            padding: 20px;
+            border-radius: 10px;
+            margin: 20px 0;
+        }
+
+        .solution-box {
+            background: rgba(50,205,50,0.2);
+            border: 2px solid #32cd32;
+            padding: 20px;
+            border-radius: 10px;
+            margin: 20px 0;
+        }
+
+        .center {
+            text-align: center;
+        }
+
+        .two-column {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="presentation-container">
+        <div class="slide-counter">
+            <span id="current-slide">1</span> / <span id="total-slides">12</span>
+        </div>
+
+        <!-- Slide 1: Title -->
+        <div class="slide active">
+            <h1>PAGI</h1>
+            <div class="center">
+                <h2>Perl Asynchronous Server Gateway Interface</h2>
+                <p style="font-size: 1.5em; margin-top: 40px;">Bringing Modern Async Web Development to Perl</p>
+                <p style="font-size: 1.2em; margin-top: 30px; color: #87ceeb;">
+                    A spiritual successor to PSGI, inspired by Python's ASGI
+                </p>
+            </div>
+        </div>
+
+        <!-- Slide 2: The Problem with PSGI -->
+        <div class="slide">
+            <h2>The Problem with PSGI</h2>
+            <div class="problem-box">
+                <h3>PSGI Limitations</h3>
+                <ul>
+                    <li><strong>Synchronous Only:</strong> Single request/response cycle</li>
+                    <li><strong>No Long-lived Connections:</strong> Can't handle WebSockets, SSE</li>
+                    <li><strong>Limited Async Support:</strong> psgi.nonblocking is a hack</li>
+                    <li><strong>Protocol Bound:</strong> Tied to HTTP request/response model</li>
+                </ul>
+            </div>
+            <div class="code-block">
+                <pre># Traditional PSGI Application
+my $app = sub {
+    my $env = shift;
+    
+    # Synchronous processing only
+    my $response = process_request($env);
+    
+    # Must return immediately
+    return [200, ['Content-Type' => 'text/plain'], [$response]];
+};
+
+# No way to handle:
+# - WebSocket connections
+# - Server-sent events
+# - Long-polling
+# - Background tasks</pre>
+            </div>
+        </div>
+
+        <!-- Slide 3: PSGI WebSocket Attempts -->
+        <div class="slide">
+            <h2>PSGI WebSocket Workarounds</h2>
+            <div class="problem-box">
+                <h3>Hacky Solutions</h3>
+                <p>Attempts to add WebSocket support to PSGI required breaking the core specification:</p>
+            </div>
+            <div class="code-block">
+                <pre># Plack::App::WebSocket - Not really PSGI compliant
+use Plack::App::WebSocket;
+
+my $app = Plack::App::WebSocket->new(
+    on_establish => sub {
+        my $conn = shift;
+        # Connection established, but...
+        # - Breaks PSGI's single-call model
+        # - Requires server-specific extensions
+        # - Not portable across PSGI servers
+    },
+    on_message => sub {
+        my ($conn, $msg) = @_;
+        # Handle message, but this is outside PSGI spec
+    },
+);
+
+# This isn't really PSGI anymore!</pre>
+            </div>
+        </div>
+
+        <!-- Slide 4: What is ASGI? -->
+        <div class="slide">
+            <h2>What is ASGI?</h2>
+            <div class="solution-box">
+                <h3>Python's Solution: ASGI</h3>
+                <ul>
+                    <li><strong>Asynchronous:</strong> Built for async/await from the ground up</li>
+                    <li><strong>Protocol Agnostic:</strong> HTTP, WebSocket, SSE, and more</li>
+                    <li><strong>Event-Driven:</strong> Message-based communication</li>
+                    <li><strong>Long-lived:</strong> Applications persist for connection lifetime</li>
+                </ul>
+            </div>
+            <div class="code-block">
+                <pre># ASGI Application Structure
+async def application(scope, receive, send):
+    # scope: connection metadata
+    # receive: async callable for incoming events
+    # send: async callable for outgoing events
+    
+    if scope['type'] == 'http':
+        await handle_http(scope, receive, send)
+    elif scope['type'] == 'websocket':
+        await handle_websocket(scope, receive, send)
+    else:
+        raise NotImplementedError(f"Unknown scope type: {scope['type']}")</pre>
+            </div>
+        </div>
+
+        <!-- Slide 5: ASGI HTTP Example -->
+        <div class="slide">
+            <h2>ASGI HTTP Example</h2>
+            <div class="code-block">
+                <pre># Python ASGI HTTP Application
+async def app(scope, receive, send):
+    if scope['type'] == 'http':
+        # Wait for request body
+        message = await receive()
+        
+        # Send response headers
+        await send({
+            'type': 'http.response.start',
+            'status': 200,
+            'headers': [[b'content-type', b'text/plain']],
+        })
+        
+        # Send response body
+        await send({
+            'type': 'http.response.body',
+            'body': b'Hello from ASGI!',
+        })
+    else:
+        raise NotImplementedError()</pre>
+            </div>
+        </div>
+
+        <!-- Slide 6: ASGI WebSocket Example -->
+        <div class="slide">
+            <h2>ASGI WebSocket Example</h2>
+            <div class="code-block">
+                <pre># Python ASGI WebSocket Application
+async def websocket_app(scope, receive, send):
+    if scope['type'] == 'websocket':
+        # Wait for connection
+        message = await receive()
+        assert message['type'] == 'websocket.connect'
+        
+        # Accept connection
+        await send({'type': 'websocket.accept'})
+        
+        # Echo messages
+        while True:
+            message = await receive()
+            if message['type'] == 'websocket.receive':
+                await send({
+                    'type': 'websocket.send',
+                    'text': f"Echo: {message['text']}"
+                })
+            elif message['type'] == 'websocket.disconnect':
+                break</pre>
+            </div>
+        </div>
+
+        <!-- Slide 7: Introducing PAGI -->
+        <div class="slide">
+            <h2>Introducing PAGI</h2>
+            <div class="solution-box">
+                <h3>ASGI for Perl</h3>
+                <ul>
+                    <li><strong>Modern Perl:</strong> Uses Future::AsyncAwait (Perl 5.16+)</li>
+                    <li><strong>ASGI Compatible:</strong> Direct port of ASGI concepts</li>
+                    <li><strong>PSGI Backwards Compatible:</strong> Adaptation layer included</li>
+                    <li><strong>Protocol Support:</strong> HTTP, WebSocket, SSE, Lifespan</li>
+                </ul>
+            </div>
+            <div class="comparison-container">
+                <div class="comparison-box">
+                    <h4>PSGI</h4>
+                    <ul>
+                        <li>Synchronous</li>
+                        <li>HTTP only</li>
+                        <li>Single call</li>
+                        <li>Limited async</li>
+                    </ul>
+                </div>
+                <div class="comparison-box">
+                    <h4>PAGI</h4>
+                    <ul>
+                        <li>Asynchronous</li>
+                        <li>Multi-protocol</li>
+                        <li>Long-lived</li>
+                        <li>Native async</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <!-- Slide 8: PAGI HTTP Example -->
+        <div class="slide">
+            <h2>PAGI HTTP Example</h2>
+            <div class="code-block">
+                <pre>use v5.36;
+use Future::AsyncAwait;
+
+# PAGI HTTP Application
+async sub application ($scope, $receive, $send) {
+    if ($scope->{type} eq 'http') {
+        # Wait for request body
+        my $message = await $receive->();
+        
+        # Send response headers
+        await $send->({
+            type    => 'http.response.start',
+            status  => 200,
+            headers => [['content-type', 'text/plain']],
+        });
+        
+        # Send response body
+        await $send->({
+            type => 'http.response.body',
+            body => 'Hello from PAGI!',
+            more => 0,
+        });
+    } else {
+        die "Unsupported protocol: $scope->{type}";
+    }
+}</pre>
+            </div>
+        </div>
+
+        <!-- Slide 9: PAGI WebSocket Example -->
+        <div class="slide">
+            <h2>PAGI WebSocket Example</h2>
+            <div class="code-block">
+                <pre>use v5.36;
+use Future::AsyncAwait;
+
+# PAGI WebSocket Application
+async sub websocket_app ($scope, $receive, $send) {
+    if ($scope->{type} eq 'websocket') {
+        # Wait for connection
+        my $message = await $receive->();
+        die unless $message->{type} eq 'websocket.connect';
+        
+        # Accept connection
+        await $send->({type => 'websocket.accept'});
+        
+        # Echo messages
+        while (1) {
+            my $message = await $receive->();
+            
+            if ($message->{type} eq 'websocket.receive') {
+                await $send->({
+                    type => 'websocket.send',
+                    text => "Echo: $message->{text}",
+                });
+            } elsif ($message->{type} eq 'websocket.disconnect') {
+                last;
+            }
+        }
+    } else {
+        die "Unsupported protocol: $scope->{type}";
+    }
+}</pre>
+            </div>
+        </div>
+
+        <!-- Slide 10: PAGI Features -->
+        <div class="slide">
+            <h2>PAGI Features</h2>
+            <div class="two-column">
+                <div>
+                    <h3>Core Protocols</h3>
+                    <ul>
+                        <li><strong>HTTP/1.1 & HTTP/2:</strong> Full async support</li>
+                        <li><strong>WebSocket:</strong> Bidirectional communication</li>
+                        <li><strong>Server-Sent Events:</strong> Real-time streaming</li>
+                        <li><strong>Lifespan:</strong> Startup/shutdown hooks</li>
+                    </ul>
+                    
+                    <h3>Extensions</h3>
+                    <ul>
+                        <li><strong>TLS:</strong> Certificate information</li>
+                        <li><strong>Custom Protocols:</strong> Extensible framework</li>
+                    </ul>
+                </div>
+                <div>
+                    <h3>Implementation</h3>
+                    <ul>
+                        <li><strong>IO::Async:</strong> Event loop integration</li>
+                        <li><strong>Future::AsyncAwait:</strong> Modern async syntax</li>
+                        <li><strong>Streaming:</strong> Efficient memory usage</li>
+                        <li><strong>Middleware:</strong> Composable applications</li>
+                    </ul>
+                    
+                    <h3>Compatibility</h3>
+                    <ul>
+                        <li><strong>PSGI Bridge:</strong> Run legacy apps</li>
+                        <li><strong>Multiple Servers:</strong> Pluggable architecture</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <!-- Slide 11: Current Progress -->
+        <div class="slide">
+            <h2>Current Progress</h2>
+            <div class="solution-box">
+                <h3>✅ Completed</h3>
+                <ul>
+                    <li><strong>Core Specification:</strong> PAGI 0.1 draft complete</li>
+                    <li><strong>Protocol Specs:</strong> HTTP, WebSocket, SSE, Lifespan, TLS</li>
+                    <li><strong>Reference Server:</strong> Streaming HTTP implementation</li>
+                    <li><strong>Documentation:</strong> Comprehensive specs and examples</li>
+                </ul>
+            </div>
+            <div class="code-block">
+                <pre># Reference Server Usage
+use PAGI::Server;
+
+my $server = PAGI::Server->new(\&my_app, port => 8080);
+await $server->run();
+
+# Supports:
+# - HTTP/1.1 with streaming
+# - Lifespan events
+# - Connection state management
+# - Graceful shutdown</pre>
+            </div>
+        </div>
+
+        <!-- Slide 12: What's Next -->
+        <div class="slide">
+            <h2>What's Next</h2>
+            <div class="two-column">
+                <div>
+                    <h3>🚧 In Progress</h3>
+                    <ul>
+                        <li>WebSocket server implementation</li>
+                        <li>HTTP/2 support</li>
+                        <li>PSGI compatibility adapter</li>
+                        <li>Performance optimizations</li>
+                    </ul>
+                    
+                    <h3>📋 Planned</h3>
+                    <ul>
+                        <li>Framework integrations</li>
+                        <li>Production servers</li>
+                        <li>Testing tools</li>
+                        <li>Ecosystem packages</li>
+                    </ul>
+                </div>
+                <div>
+                    <h3>🎯 Goals</h3>
+                    <ul>
+                        <li><strong>Performance:</strong> Match or exceed PSGI</li>
+                        <li><strong>Adoption:</strong> Easy migration path</li>
+                        <li><strong>Ecosystem:</strong> Rich middleware/tools</li>
+                        <li><strong>Standards:</strong> Stable 1.0 specification</li>
+                    </ul>
+                    
+                    <h3>🤝 Get Involved</h3>
+                    <ul>
+                        <li>GitHub: feedback & contributions</li>
+                        <li>Testing: real-world applications</li>
+                        <li>Documentation: examples & guides</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <!-- Navigation -->
+        <div class="navigation">
+            <button class="nav-btn" id="prev-btn" onclick="previousSlide()">← Previous</button>
+            <button class="nav-btn" id="next-btn" onclick="nextSlide()">Next →</button>
+        </div>
+    </div>
+
+    <script>
+        let currentSlide = 0;
+        const slides = document.querySelectorAll('.slide');
+        const totalSlides = slides.length;
+        
+        document.getElementById('total-slides').textContent = totalSlides;
+        
+        function showSlide(index) {
+            slides.forEach((slide, i) => {
+                slide.classList.toggle('active', i === index);
+            });
+            
+            document.getElementById('current-slide').textContent = index + 1;
+            document.getElementById('prev-btn').disabled = index === 0;
+            document.getElementById('next-btn').disabled = index === totalSlides - 1;
+        }
+        
+        function nextSlide() {
+            if (currentSlide < totalSlides - 1) {
+                currentSlide++;
+                showSlide(currentSlide);
+            }
+        }
+        
+        function previousSlide() {
+            if (currentSlide > 0) {
+                currentSlide--;
+                showSlide(currentSlide);
+            }
+        }
+        
+        // Keyboard navigation
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'ArrowRight' || e.key === ' ') {
+                nextSlide();
+            } else if (e.key === 'ArrowLeft') {
+                previousSlide();
+            }
+        });
+        
+        // Initialize
+        showSlide(0);
+    </script>
+</body>
+</html>
