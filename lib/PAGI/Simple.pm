@@ -1191,7 +1191,7 @@ sub _discover_services ($self) {
 }
 
 # Internal: Initialize all pending services
-sub _init_services ($self) {
+sub _init_services ($self, $quiet = 0) {
     # First, discover services
     $self->_discover_services();
 
@@ -1203,7 +1203,7 @@ sub _init_services ($self) {
             # Custom factory - call it and store result
             my $result = $pending->{factory}->($self);
             $self->{_service_registry}{$name} = $result;
-            warn "[PAGI::Simple]   Service: $name (factory)\n";
+            warn "[PAGI::Simple]   Service: $name (factory)\n" unless $quiet;
         }
         elsif ($pending->{class}) {
             my $class = $pending->{class};
@@ -1229,7 +1229,7 @@ sub _init_services ($self) {
 
             # Log what type of service
             my $type = ref($result) eq 'CODE' ? 'factory' : 'singleton';
-            warn "[PAGI::Simple]   Service: $name ($type)\n";
+            warn "[PAGI::Simple]   Service: $name ($type)\n" unless $quiet;
         }
     }
 
@@ -1468,42 +1468,48 @@ async sub _handle_lifespan ($self, $scope, $receive, $send) {
         my $type = $event->{type} // '';
 
         if ($type eq 'lifespan.startup') {
-            # Debug output on startup
-            warn "[PAGI::Simple] Starting '$self->{name}'\n";
-            warn "[PAGI::Simple]   Home dir:   $self->{_caller_dir}\n";
-            warn "[PAGI::Simple]   Namespace:  $self->{_namespace}\n";
+            # Debug output on startup (only for single-worker or worker 1)
+            my $worker_num = $scope->{pagi}{worker_num};
+            my $should_print = !defined($worker_num) || $worker_num == 1;
 
-            # Show lib dir status
-            if (defined $self->{_lib_dir}) {
-                if (-d $self->{_lib_dir}) {
-                    warn "[PAGI::Simple]   Lib dir:    $self->{_lib_dir}\n";
+            if ($should_print) {
+                warn "[PAGI::Simple] Starting '$self->{name}'\n";
+                warn "[PAGI::Simple]   Home dir:   $self->{_caller_dir}\n";
+                warn "[PAGI::Simple]   Namespace:  $self->{_namespace}\n";
+
+                # Show lib dir status
+                if (defined $self->{_lib_dir}) {
+                    if (-d $self->{_lib_dir}) {
+                        warn "[PAGI::Simple]   Lib dir:    $self->{_lib_dir}\n";
+                    } else {
+                        warn "[PAGI::Simple]   Lib dir:    $self->{_lib_dir} (not found)\n";
+                    }
                 } else {
-                    warn "[PAGI::Simple]   Lib dir:    $self->{_lib_dir} (not found)\n";
+                    warn "[PAGI::Simple]   Lib dir:    (none)\n";
                 }
-            } else {
-                warn "[PAGI::Simple]   Lib dir:    (none)\n";
-            }
 
-            if ($self->{_shared_assets} && %{$self->{_shared_assets}}) {
-                for my $asset (sort keys %{$self->{_shared_assets}}) {
-                    my $dir = eval { $self->share_dir($asset) } // '(not found)';
-                    warn "[PAGI::Simple]   Share dir ($asset): $dir\n";
+                if ($self->{_shared_assets} && %{$self->{_shared_assets}}) {
+                    for my $asset (sort keys %{$self->{_shared_assets}}) {
+                        my $dir = eval { $self->share_dir($asset) } // '(not found)';
+                        warn "[PAGI::Simple]   Share dir ($asset): $dir\n";
+                    }
                 }
-            }
 
-            # Show view template directory
-            if ($self->{_view}) {
-                my $tpl_dir = $self->{_view}->template_dir;
-                if (-d $tpl_dir) {
-                    warn "[PAGI::Simple]   Templates:  $tpl_dir\n";
-                } else {
-                    warn "[PAGI::Simple]   Templates:  $tpl_dir (not found)\n";
+                # Show view template directory
+                if ($self->{_view}) {
+                    my $tpl_dir = $self->{_view}->template_dir;
+                    if (-d $tpl_dir) {
+                        warn "[PAGI::Simple]   Templates:  $tpl_dir\n";
+                    } else {
+                        warn "[PAGI::Simple]   Templates:  $tpl_dir (not found)\n";
+                    }
                 }
             }
 
             # Initialize services before startup hooks
+            my $quiet = !$should_print;
             eval {
-                $self->_init_services();
+                $self->_init_services($quiet);
             };
             if ($@) {
                 await $send->({
@@ -1535,7 +1541,7 @@ async sub _handle_lifespan ($self, $scope, $receive, $send) {
                     }
                     Future->wait_all(@warmup_futures)->get;
 
-                    warn "[PAGI::Simple]   Workers:    $max (pool ready)\n";
+                    warn "[PAGI::Simple]   Workers:    $max (pool ready)\n" if $should_print;
                 };
                 if ($@) {
                     await $send->({
