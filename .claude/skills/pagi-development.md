@@ -436,8 +436,9 @@ async sub app ($scope, $receive, $send) {
         });
         $count++;
 
-        # Wait 1 second (use IO::Async timer in real code)
-        await IO::Async::Loop->new->delay_future(after => 1);
+        # Wait 1 second - get loop from your app context in production
+        # await $loop->delay_future(after => 1);
+        sleep(1);  # Blocking - for demo only!
     }
 
     $watch_future->cancel if $watch_future->can('cancel');
@@ -469,3 +470,110 @@ if ($scope->{type} eq 'sse') {
     return;
 }
 ```
+
+## Lifespan Protocol
+
+Lifespan events handle application startup and shutdown. Use for initializing database pools, loading configuration, or cleanup.
+
+### Lifespan Scope
+
+When `$scope->{type}` is `"lifespan"`:
+
+```perl
+{
+    type  => 'lifespan',
+    pagi  => { version => '0.1', spec_version => '0.1' },
+    state => {},  # Shared with request scopes
+}
+```
+
+### Lifespan Events
+
+**Receive events:**
+- `lifespan.startup` - Server is starting
+- `lifespan.shutdown` - Server is stopping
+
+**Send events:**
+- `lifespan.startup.complete` - App ready to accept connections
+- `lifespan.startup.failed` - Startup failed (`message`)
+- `lifespan.shutdown.complete` - Cleanup finished
+- `lifespan.shutdown.failed` - Cleanup failed (`message`)
+
+### Complete Lifespan Example
+
+```perl
+use strict;
+use warnings;
+use Future::AsyncAwait;
+use experimental 'signatures';
+
+async sub app ($scope, $receive, $send) {
+    if ($scope->{type} eq 'lifespan') {
+        await handle_lifespan($scope, $receive, $send);
+    }
+    elsif ($scope->{type} eq 'http') {
+        await handle_http($scope, $receive, $send);
+    }
+    else {
+        die "Unsupported scope type: $scope->{type}";
+    }
+}
+
+async sub handle_lifespan ($scope, $receive, $send) {
+    while (1) {
+        my $event = await $receive->();
+
+        if ($event->{type} eq 'lifespan.startup') {
+            eval {
+                # Initialize resources
+                $scope->{state}{db} = DBI->connect(...);
+                $scope->{state}{started} = time();
+            };
+
+            if ($@) {
+                await $send->({
+                    type    => 'lifespan.startup.failed',
+                    message => "Startup error: $@",
+                });
+                return;
+            }
+
+            await $send->({ type => 'lifespan.startup.complete' });
+        }
+        elsif ($event->{type} eq 'lifespan.shutdown') {
+            eval {
+                # Cleanup resources
+                $scope->{state}{db}->disconnect if $scope->{state}{db};
+            };
+
+            await $send->({ type => 'lifespan.shutdown.complete' });
+            return;
+        }
+    }
+}
+
+async sub handle_http ($scope, $receive, $send) {
+    # Access shared state from lifespan
+    my $db = $scope->{state}{db};
+    my $uptime = time() - $scope->{state}{started};
+
+    await $send->({
+        type    => 'http.response.start',
+        status  => 200,
+        headers => [['content-type', 'text/plain']],
+    });
+    await $send->({
+        type => 'http.response.body',
+        body => "Server uptime: ${uptime}s",
+    });
+}
+
+$app;
+```
+
+### State Sharing
+
+The `$scope->{state}` hashref is:
+- Created during lifespan scope
+- Shallow-copied to each request scope
+- Use for sharing database pools, config, caches
