@@ -22,6 +22,7 @@
   - Async model means slow clients don't block others
   - Typically handled by nginx/HAProxy in production
   - Only needed if running without reverse proxy and facing abuse
+  - need to review all ways we make paths to make sure we use filesystem agnostic tools and not assume everyone uses / for path delims *"$root/$path" to File::Spec->catfile($root, $path)
 
 ## PAGI::Simple
 

@@ -56,11 +56,31 @@ sub simulate_http ($app, %opts) {
     my $pagi_app = $app->to_app;
     $pagi_app->($scope, $receive, $send)->get;
 
+    # Extract body - handle both 'body' and 'file' response types
+    my $body = $sent[1]{body} // '';
+    if (!length($body) && $sent[1]{file}) {
+        # Read file content for test verification
+        my $file = $sent[1]{file};
+        my $offset = $sent[1]{offset} // 0;
+        my $length = $sent[1]{length};
+
+        if (open my $fh, '<:raw', $file) {
+            seek($fh, $offset, 0) if $offset;
+            if (defined $length) {
+                read($fh, $body, $length);
+            } else {
+                local $/;
+                $body = <$fh>;
+            }
+            close $fh;
+        }
+    }
+
     return {
         sent => \@sent,
         status => $sent[0]{status},
         headers => { map { @$_ } @{$sent[0]{headers} // []} },
-        body => $sent[1]{body} // '',
+        body => $body,
     };
 }
 
