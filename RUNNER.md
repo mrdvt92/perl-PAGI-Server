@@ -57,7 +57,7 @@ Comparison of PAGI::Runner with Plack::Runner and Starman to identify feature ga
 
 5. **`-S, --socket PATH`** - Listen on Unix domain socket
 6. **`-E, --env NAME`** - Set PAGI_ENV (development/production/test)
-7. **`-v, --version`** - Display version info
+7. **`-v, --version`** - Display version info ✅
 8. **`--error-log FILE`** - Separate error log from access log
 
 ### LOW Priority (Development Convenience)
