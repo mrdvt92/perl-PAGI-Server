@@ -6,7 +6,7 @@ Split PAGI::Simple into its own CPAN distribution (`PAGI-Simple`) separate from 
 
 ## Rationale
 
-PAGI::Simple has grown into a full micro-framework with 29 modules including:
+PAGI::Simple has grown into a full micro-framework with 30 modules (Simple.pm + 29 in Simple/) including:
 - Routing, middleware, hooks
 - Request/Response abstractions
 - Views/templating with layouts and partials
@@ -39,13 +39,12 @@ PAGI/
 ├── examples/
 │   ├── 01-hello-http/             # STAYS - raw PAGI examples
 │   ├── ...
-│   ├── simple-01-hello/           # MOVES -> PAGI-Simple examples
-│   ├── simple-02-json/            # MOVES
-│   └── ...
+│   ├── simple-01-hello/           # MOVES -> PAGI-Simple (21 examples)
+│   ├── simple-02-forms/           # MOVES
+│   └── ...                        # (all simple-* directories move)
 ├── t/
 │   ├── 01-hello-http.t            # STAYS
-│   ├── simple-*.t                 # MOVES (if any)
-│   └── ...
+│   └── ...                        # (no simple-*.t tests currently exist)
 └── docs/
     └── specs/                     # STAYS - PAGI specification
 ```
@@ -77,8 +76,7 @@ git filter-repo \
   --path lib/PAGI/Simple.pm \
   --path lib/PAGI/Simple/ \
   --path share/ \
-  --path-glob 'examples/simple-*' \
-  --path-glob 't/simple-*.t'
+  --path-glob 'examples/simple-*'
 
 # 4. Remove old remote
 git remote remove origin
@@ -100,7 +98,7 @@ copyright_holder = John Napiorkowski
 
 [Prereqs]
 perl = 5.032
-PAGI = 0.01
+PAGI::Server = 0.001
 Future::AsyncAwait = 0
 IO::Async = 0
 JSON::MaybeXS = 0
@@ -115,7 +113,7 @@ Create `cpanfile`:
 
 ```perl
 requires 'perl', '5.032';
-requires 'PAGI', '0.01';
+requires 'PAGI::Server', '0.001';
 requires 'Future::AsyncAwait';
 requires 'IO::Async';
 requires 'JSON::MaybeXS';
@@ -140,9 +138,6 @@ rm -rf examples/simple-*/
 
 # Remove share directory (only used by Simple for htmx)
 rm -rf share/
-
-# Remove Simple tests
-rm -f t/simple-*.t
 
 # Update dist.ini to remove PAGI::Simple references
 # Update cpanfile
@@ -210,19 +205,25 @@ share/htmx/ext/sse.js
 share/htmx/ext/ws.js
 
 examples/simple-01-hello/
-examples/simple-02-json/
+examples/simple-02-forms/
 examples/simple-03-websocket/
 examples/simple-04-sse/
-examples/simple-05-middleware/
-examples/simple-06-groups/
-examples/simple-07-error-handlers/
-examples/simple-08-named-routes/
-examples/simple-09-views/
-examples/simple-10-static/
-examples/simple-11-pubsub/
-examples/simple-12-htmx/
-examples/simple-30-subclass/
-examples/simple-31-services/
+examples/simple-05-streaming/
+examples/simple-06-negotiation/
+examples/simple-07-uploads/
+examples/simple-08-cookies/
+examples/simple-09-cors/
+examples/simple-10-logging/
+examples/simple-11-named-routes/
+examples/simple-12-mount/
+examples/simple-13-utf8/
+examples/simple-14-streaming/
+examples/simple-15-views/
+examples/simple-16-layouts/
+examples/simple-17-htmx-poll/
+examples/simple-18-async-services/
+examples/simple-19-valiant-forms/
+examples/simple-20-worker-pool/
 examples/simple-32-todo/
 ```
 
@@ -246,5 +247,7 @@ pagi-server examples/simple-01-hello/app.pl  # Works
 
 - The split preserves git history for moved files using `git filter-repo`
 - PAGI-Simple will have PAGI as a runtime dependency
-- Users install: `cpanm PAGI PAGI-Simple` (or just PAGI-Simple which pulls in PAGI)
-- The pagi-server binary stays in PAGI distribution
+- Users install: `cpanm PAGI-Server PAGI-Simple` (or just PAGI-Simple which pulls in PAGI-Server)
+- The pagi-server binary stays in PAGI-Server distribution
+- Current dist.ini names the distribution `PAGI-Server` (not `PAGI`)
+- No `t/simple-*.t` tests currently exist (nothing to move for tests)

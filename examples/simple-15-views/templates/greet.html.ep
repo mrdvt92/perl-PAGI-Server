@@ -1,5 +1,0 @@
-<% extends('layouts/default') %>
-
-<h1>Hello, <%= $v->name %>!</h1>
-<p>Welcome to the PAGI::Simple views demo.</p>
-<p><a href="/">Back to home</a></p>
