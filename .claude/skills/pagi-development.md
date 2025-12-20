@@ -861,3 +861,260 @@ my $event = await $receive->();
 die "Expected connect" if $event->{type} ne 'websocket.connect';
 await $send->({ type => 'websocket.accept' });
 ```
+
+## Practical Examples
+
+### Static File Serving
+
+```perl
+use strict;
+use warnings;
+use Future::AsyncAwait;
+use experimental 'signatures';
+use File::Spec;
+use Cwd 'abs_path';
+
+my $DOCUMENT_ROOT = '/var/www/static';
+
+my $app = async sub ($scope, $receive, $send) {
+    die "Unsupported" if $scope->{type} ne 'http';
+
+    my $path = $scope->{path};
+
+    # Security: prevent path traversal
+    $path =~ s/\.\.//g;
+    $path =~ s{^/}{};
+    $path ||= 'index.html';
+
+    my $file = File::Spec->catfile($DOCUMENT_ROOT, $path);
+    my $real = eval { abs_path($file) };
+
+    # Ensure file is within document root
+    unless ($real && $real =~ /^\Q$DOCUMENT_ROOT\E/ && -f $real) {
+        await send_404($send);
+        return;
+    }
+
+    # Determine MIME type
+    my %mime = (
+        html => 'text/html',
+        css  => 'text/css',
+        js   => 'application/javascript',
+        json => 'application/json',
+        png  => 'image/png',
+        jpg  => 'image/jpeg',
+    );
+    my ($ext) = $real =~ /\.(\w+)$/;
+    my $content_type = $mime{lc($ext // '')} // 'application/octet-stream';
+
+    my $size = -s $real;
+
+    await $send->({
+        type    => 'http.response.start',
+        status  => 200,
+        headers => [
+            ['content-type', $content_type],
+            ['content-length', $size],
+        ],
+    });
+
+    await $send->({
+        type => 'http.response.body',
+        file => $real,
+    });
+};
+
+async sub send_404 ($send) {
+    await $send->({
+        type    => 'http.response.start',
+        status  => 404,
+        headers => [['content-type', 'text/plain']],
+    });
+    await $send->({
+        type => 'http.response.body',
+        body => 'Not Found',
+    });
+}
+
+$app;
+```
+
+### Form Handling (URL-encoded POST)
+
+```perl
+use URI::Escape qw(uri_unescape);
+
+async sub handle_form ($scope, $receive, $send) {
+    my $body = await read_body($receive);
+
+    # Parse application/x-www-form-urlencoded
+    my %form;
+    for my $pair (split /&/, $body) {
+        my ($key, $value) = split /=/, $pair, 2;
+        $key   //= '';
+        $key   =~ s/\+/ /g;  # + means space in form data
+        $key   = uri_unescape($key);
+        $value //= '';
+        $value =~ s/\+/ /g;  # + means space in form data
+        $value = uri_unescape($value);
+        $form{$key} = $value;
+    }
+
+    # Use form data
+    my $name = $form{name} // 'Anonymous';
+    # ...
+}
+
+async sub read_body ($receive) {
+    my $body = '';
+    while (1) {
+        my $event = await $receive->();
+        return $body if $event->{type} eq 'http.disconnect';
+        if ($event->{type} eq 'http.request') {
+            $body .= $event->{body} // '';
+            last unless $event->{more};
+        }
+    }
+    return $body;
+}
+```
+
+### Redirects
+
+```perl
+async sub redirect ($send, $location, $permanent = 0) {
+    my $status = $permanent ? 301 : 302;
+    await $send->({
+        type    => 'http.response.start',
+        status  => $status,
+        headers => [
+            ['location', $location],
+            ['content-type', 'text/plain'],
+        ],
+    });
+    await $send->({
+        type => 'http.response.body',
+        body => "Redirecting to $location",
+    });
+}
+
+# Usage
+await redirect($send, '/new-page', 1);  # 301 permanent
+await redirect($send, '/dashboard');     # 302 temporary
+```
+
+### Setting and Reading Cookies
+
+```perl
+async sub app ($scope, $receive, $send) {
+    die "Unsupported" if $scope->{type} ne 'http';
+
+    # Read cookies from request
+    my $cookie_header = get_header($scope, 'cookie') // '';
+    my %cookies;
+    for my $pair (split /;\s*/, $cookie_header) {
+        my ($name, $value) = split /=/, $pair, 2;
+        $cookies{$name} = $value if defined $name;
+    }
+
+    my $visits = ($cookies{visits} // 0) + 1;
+
+    # Set cookie in response
+    my $cookie = "visits=$visits; Path=/; HttpOnly; Max-Age=86400";
+
+    await $send->({
+        type    => 'http.response.start',
+        status  => 200,
+        headers => [
+            ['content-type', 'text/plain'],
+            ['set-cookie', $cookie],
+        ],
+    });
+    await $send->({
+        type => 'http.response.body',
+        body => "You have visited $visits times",
+    });
+}
+```
+
+### CORS Headers
+
+```perl
+async sub handle_cors ($scope, $receive, $send) {
+    my $origin = get_header($scope, 'origin');
+    my @cors_headers;
+
+    if ($origin) {
+        @cors_headers = (
+            ['access-control-allow-origin', $origin],
+            ['access-control-allow-methods', 'GET, POST, PUT, DELETE, OPTIONS'],
+            ['access-control-allow-headers', 'Content-Type, Authorization'],
+            ['access-control-max-age', '86400'],
+        );
+    }
+
+    # Handle preflight OPTIONS request
+    if ($scope->{method} eq 'OPTIONS') {
+        await $send->({
+            type    => 'http.response.start',
+            status  => 204,
+            headers => [@cors_headers],
+        });
+        await $send->({ type => 'http.response.body', body => '' });
+        return;
+    }
+
+    # Normal response with CORS headers
+    await $send->({
+        type    => 'http.response.start',
+        status  => 200,
+        headers => [
+            ['content-type', 'application/json'],
+            @cors_headers,
+        ],
+    });
+    await $send->({
+        type => 'http.response.body',
+        body => '{"message":"CORS-enabled response"}',
+    });
+}
+```
+
+### Bearer Token Authentication
+
+```perl
+async sub require_auth ($scope, $receive, $send, $handler) {
+    my $auth = get_header($scope, 'authorization') // '';
+
+    if ($auth =~ /^Bearer\s+(.+)$/) {
+        my $token = $1;
+        my $user = validate_token($token);  # Your validation
+
+        if ($user) {
+            # Attach user to scope for handler
+            $scope->{user} = $user;
+            await $handler->($scope, $receive, $send);
+            return;
+        }
+    }
+
+    # Unauthorized
+    await $send->({
+        type    => 'http.response.start',
+        status  => 401,
+        headers => [
+            ['content-type', 'application/json'],
+            ['www-authenticate', 'Bearer realm="api"'],
+        ],
+    });
+    await $send->({
+        type => 'http.response.body',
+        body => '{"error":"Unauthorized"}',
+    });
+}
+
+# Usage in router
+if ($path =~ m{^/api/}) {
+    await require_auth($scope, $receive, $send, \&handle_api);
+}
+```
