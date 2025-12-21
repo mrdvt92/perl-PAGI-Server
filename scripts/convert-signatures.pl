@@ -23,9 +23,12 @@ for my $path (@paths) {
     if (-f $path) {
         process_file($path);
     } elsif (-d $path) {
-        find(sub {
-            return unless -f $_ && /\.(pm|pl|t)$/;
-            process_file($File::Find::name);
+        find({
+            wanted => sub {
+                return unless -f $_ && /\.(pm|pl|t)$/;
+                process_file($File::Find::name);
+            },
+            no_chdir => 1,  # Don't change directory
         }, $path);
     } else {
         warn "Path does not exist: $path\n";
@@ -96,9 +99,9 @@ sub process_file {
     }gmxe;
 
     # Additional pattern: Other anonymous async subs not in return statements
-    # Match: = async sub (...) { or other contexts
+    # Match: = async sub (...) { or => async sub (...) { or other contexts
     $content =~ s{
-        (=[ \t]+async[ \t]+sub[ \t]*)\(([^)]*)\)([ \t]*\{)
+        (=>?[ \t]*async[ \t]+sub[ \t]*)\(([^)]*)\)([ \t]*\{)
     }{
         my $prefix = $1;
         my $params = $2;
@@ -116,7 +119,7 @@ sub process_file {
 
     # Pattern: intercept_send style - my $wrapped_send = $self->intercept_send($send, async sub ($event) {
     $content =~ s{
-        (,[ \t]+async[ \t]+sub[ \t]*)\(([^)]*)\)([ \t]*\{)
+        (,[ \t\n]+async[ \t]+sub[ \t]*)\(([^)]*)\)([ \t]*\{)
     }{
         my $prefix = $1;
         my $params = $2;
@@ -130,7 +133,25 @@ sub process_file {
             $result .= "\n" . $defaults;
         }
         $result;
-    }gmxe;
+    }gmxse;
+
+    # Pattern: function call with async sub - func(\n        async sub (...) {
+    $content =~ s{
+        (\([ \t\n]+async[ \t]+sub[ \t]*)\(([^)]*)\)([ \t]*\{)
+    }{
+        my $prefix = $1;
+        my $params = $2;
+        my $suffix = $3;
+
+        my ($converted, $defaults) = convert_params($params, '        ');
+        $file_subs_converted++;
+
+        my $result = "${prefix}${suffix}\n        my $converted = \@_;";
+        if ($defaults) {
+            $result .= "\n" . $defaults;
+        }
+        $result;
+    }gmxse;
 
     # Pattern: Anonymous non-async subs (= sub (...) { or code => sub (...) {)
     # This handles cases like: my $foo = sub ($x) { or code => sub ($x, @y) {
