@@ -86,11 +86,21 @@ The scope hashref may contain additional keys beyond those defined in the HTTP, 
 
 **Custom keys:**
 
-Applications and third-party middleware SHOULD use a unique dotted prefix to avoid collisions:
+Applications and third-party middleware SHOULD use a unique key or prefix to avoid collisions. Two common patterns:
 
-- `myapp.*` - Application-specific data
-- `vendorname.*` - Third-party middleware/library data
-- `companyname.projectname.*` - More specific namespacing
+```perl
+# Pattern 1: Single hashref (recommended for grouped data)
+$scope->{myauth} = {
+    user  => $user_object,
+    roles => ['admin', 'editor'],
+};
+
+# Pattern 2: Dotted keys (for flat/independent values)
+$scope->{'myapp.request_id'} = $uuid;
+$scope->{'myapp.started_at'} = time();
+```
+
+Either approach works - choose based on whether your data is naturally grouped or independent.
 
 **Allowed values:**
 
@@ -105,19 +115,21 @@ Scope values may be any Perl data type:
 **Example:**
 
 ```perl
-# Authentication middleware adding user info
-$scope->{'myauth.user'} = $user_object;
-$scope->{'myauth.roles'} = ['admin', 'editor'];
-$scope->{'myauth.authenticated_at'} = time();
+# Authentication middleware - hashref pattern
+$scope->{myauth} = {
+    user  => $user_object,
+    roles => ['admin', 'editor'],
+    authenticated_at => time(),
+};
 
-# Router middleware adding match info
+# Router middleware (PAGI built-in)
 $scope->{'pagi.router'} = {
     params => { id => '42' },
     route  => '/users/:id',
 };
 
 # Application accessing middleware data
-my $user = $scope->{'myauth.user'};
+my $user = $scope->{myauth}{user};
 my $id = $scope->{'pagi.router'}{params}{id};
 ```
 
