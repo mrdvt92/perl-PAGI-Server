@@ -431,6 +431,25 @@ SSE scopes reuse the HTTP scope structure. Servers MUST populate the same keys (
 
 To end the SSE stream the application simply returns after the final `sse.send`. The server will flush buffered events and close the HTTP connection.
 
+### SSE Comment - `send` event
+
+`sse.comment` sends an SSE comment line. Comments start with a colon (`:`) and are used for keepalive pings or protocol-level messages. Comments do NOT trigger the client's `onmessage` handler in browsers, making them ideal for connection maintenance.
+
+- `type` -- `"sse.comment"`
+- `comment` (String) -- Comment text. If the text does not start with `:`, the server MUST prepend one.
+
+**Example:**
+
+```perl
+# Keepalive ping (no browser callback triggered)
+await $send->({
+    type    => 'sse.comment',
+    comment => ':keepalive',
+});
+```
+
+The server emits the comment followed by two newlines (`:keepalive\n\n`). This keeps the connection alive through proxies without triggering application-level event handlers on the client.
+
 ### SSE Disconnect - `receive` event
 
 Sent to the application if the client disconnects or if the server shuts down the SSE stream after `sse.start`.
