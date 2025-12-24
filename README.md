@@ -64,6 +64,35 @@ cpanm Cpanel::JSON::XS
 
 Other optional dependencies:
 - **Sys::Sendfile** - Zero-copy file transfers for static file serving
+- **IO::Async::SSL** + **IO::Socket::SSL** - TLS/HTTPS support (see below)
+
+## Optional TLS/HTTPS Support
+
+TLS support is **optional** and not installed by default. Most production deployments use a reverse proxy (nginx, Caddy, HAProxy) for TLS termination, so PAGI keeps the base installation minimal.
+
+**To enable HTTPS support:**
+
+```bash
+# Using cpanm
+cpanm IO::Async::SSL IO::Socket::SSL
+
+# Or on Debian/Ubuntu
+apt-get install libio-socket-ssl-perl
+```
+
+**When you need TLS in PAGI::Server:**
+- Serving HTTPS directly without a reverse proxy
+- Testing TLS locally during development
+- Using client certificate authentication
+
+**When you don't need it:**
+- Behind nginx, Caddy, or other reverse proxy handling TLS
+- Development on localhost with HTTP only
+- Behind a cloud load balancer (AWS ALB, GCP LB)
+
+The startup banner shows TLS status: `tls: on|available|not installed|disabled`
+
+See `perldoc PAGI::Server` for TLS configuration details and certificate generation examples.
 
 ## PAGI Application Interface
 
