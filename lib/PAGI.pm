@@ -47,6 +47,10 @@ Perl web applications, designed as a spiritual successor to PSGI. It defines a
 standard interface between async-capable Perl web servers, frameworks, and
 applications, supporting HTTP/1.1, WebSocket, and Server-Sent Events (SSE).
 
+This document presents a high level overview of L<PAGI>.  If you are a web developer
+who is looking to write PAGI compliant apps, you should also review the tutorial:
+L<PAGI::Tutorial>.
+
 =head2 Beta Software Notice
 
 B<WARNING: This is beta software.>
@@ -61,6 +65,8 @@ The PAGI specification (C<$scope>, C<$receive>, C<$send> interface) is stable.
 Breaking changes will not be made except for critical security issues. Raw
 PAGI applications you write today will continue to work.
 
+See L<PAGI::Spec>
+
 =item B<Stable: PAGI::Server>
 
 The reference server has been validated against L<PAGI::Compliance> and handles
@@ -68,13 +74,16 @@ HTTP/1.1, WebSocket, and SSE correctly. However, it has not been battle-tested
 in production. B<Recommendation:> Run behind a reverse proxy like nginx, Apache,
 or Caddy for production deployments.
 
+See L<PAGI::Server>, L<PAGI::Server::Compliance>.
+
 =item B<Unstable: Everything Else>
 
 L<PAGI::Request>, L<PAGI::Response>, L<PAGI::WebSocket>, L<PAGI::SSE>,
 L<PAGI::Endpoint::Router>, L<PAGI::App::Router>, middleware, and bundled apps
 are subject to change. These APIs may be modified to fix security issues,
 resolve architectural problems, or improve the developer experience. You can
-use them, but expect potential breaking changes between releases.
+use them, but I reserve the right to make breaking changes between releases
+as we continue to shape how these helpers work and impact the PAGI ecosystem.
 
 =back
 
