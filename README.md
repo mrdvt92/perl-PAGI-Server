@@ -1,5 +1,8 @@
 # PAGI - Perl Asynchronous Gateway Interface
 
+<a href="https://github.com/jjn1056/PAGI/actions"><img src="https://github.com/jjn1056/PAGI/actions/workflows/ci.yml/badge.svg"></a>
+<a href="https://metacpan.org/pod/PAGI"><img src="https://badge.fury.io/pl/PAGI.svg"></a>
+
 PAGI is a specification for asynchronous Perl web applications, designed as a spiritual successor to PSGI. It defines a standard interface between async-capable Perl web servers, frameworks, and applications, supporting HTTP/1.1, WebSocket, and Server-Sent Events (SSE).
 
 ## ⚠️ Beta Software
