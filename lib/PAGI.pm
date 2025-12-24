@@ -24,7 +24,7 @@ Version 0.001001 (Beta)
 
     async sub app {
         my ($scope, $receive, $send) = @_;
-    
+
         die "Unsupported: $scope->{type}" if $scope->{type} ne 'http';
 
         await $send->({
@@ -51,11 +51,32 @@ applications, supporting HTTP/1.1, WebSocket, and Server-Sent Events (SSE).
 
 B<WARNING: This is beta software.>
 
-This code is provided for developers interested in exploring and advancing
-asynchronous web programming in Perl. The only guarantee made is that the
-test suite passes.
+This distribution has different stability levels:
 
-B<Do not use this in production.>
+=over 4
+
+=item B<Stable: PAGI Specification>
+
+The PAGI specification (C<$scope>, C<$receive>, C<$send> interface) is stable.
+Breaking changes will not be made except for critical security issues. Raw
+PAGI applications you write today will continue to work.
+
+=item B<Stable: PAGI::Server>
+
+The reference server has been validated against L<PAGI::Compliance> and handles
+HTTP/1.1, WebSocket, and SSE correctly. However, it has not been battle-tested
+in production. B<Recommendation:> Run behind a reverse proxy like nginx, Apache,
+or Caddy for production deployments.
+
+=item B<Unstable: Everything Else>
+
+L<PAGI::Request>, L<PAGI::Response>, L<PAGI::WebSocket>, L<PAGI::SSE>,
+L<PAGI::Endpoint::Router>, L<PAGI::App::Router>, middleware, and bundled apps
+are subject to change. These APIs may be modified to fix security issues,
+resolve architectural problems, or improve the developer experience. You can
+use them, but expect potential breaking changes between releases.
+
+=back
 
 If you are interested in contributing to the future of async Perl web
 development, your feedback, bug reports, and contributions are welcome.
@@ -70,6 +91,35 @@ This distribution includes:
 
 Reference server implementation supporting HTTP/1.1, WebSocket, SSE, and
 multi-worker mode with pre-forking.
+
+=item L<PAGI::Lifespan>
+
+Lifecycle management wrapper for PAGI applications. Handles startup/shutdown
+callbacks and injects shared application state into request scopes.
+
+=item L<PAGI::Request>
+
+Convenience wrapper for HTTP request handling with body parsing, headers,
+and state/stash accessors.
+
+=item L<PAGI::WebSocket>
+
+Convenience wrapper for WebSocket connections with JSON support, heartbeat,
+and state/stash accessors.
+
+=item L<PAGI::SSE>
+
+Convenience wrapper for Server-Sent Events with event formatting, keepalive,
+and periodic sending.
+
+=item L<PAGI::Endpoint::Router>
+
+Class-based router supporting HTTP, WebSocket, and SSE routes with parameter
+capture and subrouter mounting.
+
+=item L<PAGI::App::Router>
+
+Functional router for building PAGI applications with Express-style routing.
 
 =item L<PAGI::Middleware::*>
 
@@ -167,7 +217,7 @@ Raw PAGI example with explicit UTF-8 handling:
 
     async sub app {
         my ($scope, $receive, $send) = @_;
-    
+
         # Handle lifespan if your server sends it; otherwise fail on unsupported types.
         die "Unsupported type: $scope->{type}" unless $scope->{type} eq 'http';
 

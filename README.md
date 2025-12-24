@@ -2,6 +2,16 @@
 
 PAGI is a specification for asynchronous Perl web applications, designed as a spiritual successor to PSGI. It defines a standard interface between async-capable Perl web servers, frameworks, and applications, supporting HTTP/1.1, WebSocket, and Server-Sent Events (SSE).
 
+## ⚠️ Beta Software
+
+This distribution has different stability levels:
+
+| Component | Stability | Notes |
+|-----------|-----------|-------|
+| **PAGI Specification** | Stable | The `$scope`/`$receive`/`$send` interface won't change except for critical security fixes |
+| **PAGI::Server** | Stable | Compliance-tested, but run behind nginx/Caddy for production |
+| **Everything else** | Unstable | Request/Response wrappers, routers, middleware, apps may change between releases |
+
 ## Repository Contents
 
 - **docs/** - PAGI specification documents
@@ -21,7 +31,7 @@ PAGI is a specification for asynchronous Perl web applications, designed as a sp
 # Install dependencies
 cpanm --installdeps .
 
-# For best file-serving performance (zero-copy sendfile):
+# For best performance (fast JSON, zero-copy sendfile):
 cpanm --installdeps . --with-recommends
 
 # Run tests
@@ -33,6 +43,24 @@ pagi-server --app examples/01-hello-http/app.pl --port 5000
 # Test it
 curl http://localhost:5000/
 ```
+
+## Optional Performance Dependencies
+
+PAGI uses `JSON::MaybeXS` for JSON encoding/decoding, which automatically uses the fastest available backend:
+
+| Module | Speed | Notes |
+|--------|-------|-------|
+| **Cpanel::JSON::XS** | Fastest | Recommended for production |
+| **JSON::XS** | Fast | Good alternative |
+| **JSON::PP** | Baseline | Pure Perl fallback (always available) |
+
+Install for best performance:
+```bash
+cpanm Cpanel::JSON::XS
+```
+
+Other optional dependencies:
+- **Sys::Sendfile** - Zero-copy file transfers for static file serving
 
 ## PAGI Application Interface
 
@@ -116,7 +144,9 @@ async sub app ($scope, $receive, $send) {
 
 ## Example Applications
 
-These examples demonstrate the low-level PAGI protocol directly:
+### Low-Level Protocol Examples
+
+These examples demonstrate the raw PAGI protocol:
 
 | Example | Description |
 |---------|-------------|
@@ -130,6 +160,82 @@ These examples demonstrate the low-level PAGI protocol directly:
 | 08-tls-introspection | TLS connection info |
 | 09-psgi-bridge | PSGI compatibility |
 
+### Higher-Level Examples
+
+| Example | Description |
+|---------|-------------|
+| endpoint-router-demo | Full app with HTTP, WebSocket, SSE using PAGI::Endpoint::Router |
+| websocket-chat-v2 | Chat application using PAGI::WebSocket wrapper |
+| sse-dashboard | Dashboard with SSE updates using PAGI::SSE wrapper |
+
+## Components
+
+PAGI includes convenience wrappers for common patterns:
+
+| Component | Description |
+|-----------|-------------|
+| **PAGI::Lifespan** | Lifecycle management for apps (startup/shutdown callbacks, state injection) |
+| **PAGI::Request** | HTTP request wrapper with body parsing, headers, state/stash accessors |
+| **PAGI::WebSocket** | WebSocket wrapper with JSON support, heartbeat, message iteration |
+| **PAGI::SSE** | SSE wrapper with event formatting, keepalive, periodic sending |
+| **PAGI::Endpoint::Router** | Class-based router for HTTP, WebSocket, and SSE routes |
+| **PAGI::App::Router** | Functional router with Express-style routing |
+
+### Higher-Level Router Example
+
+```perl
+# lib/MyApp.pm
+package MyApp;
+use parent 'PAGI::Endpoint::Router';
+use Future::AsyncAwait;
+
+sub routes {
+    my ($self, $r) = @_;
+    $r->get('/' => 'home');
+    $r->websocket('/ws/echo' => 'ws_echo');
+    $r->sse('/events' => 'sse_stream');
+}
+
+async sub home {
+    my ($self, $req, $res) = @_;
+    await $res->html('<h1>Hello!</h1>');
+}
+
+async sub ws_echo {
+    my ($self, $ws) = @_;
+    await $ws->accept;
+    await $ws->each_json(async sub {
+        my ($data) = @_;
+        await $ws->send_json({ echo => $data });
+    });
+}
+
+async sub sse_stream {
+    my ($self, $sse) = @_;
+    await $sse->every(1, async sub {
+        await $sse->send_event(event => 'tick', data => { time => time });
+    });
+}
+
+1;
+
+# app.pl
+use PAGI::Lifespan;
+use MyApp;
+
+my $router = MyApp->new;
+
+PAGI::Lifespan->wrap(
+    $router->to_app,
+    startup => async sub {
+        my ($state) = @_;
+        $state->{config} = { app_name => 'MyApp' };
+    },
+);
+```
+
+See `examples/endpoint-router-demo/` for a complete working example with HTTP, WebSocket, and SSE.
+
 ## Middleware
 
 PAGI includes a collection of middleware components in `PAGI::Middleware::*`:
@@ -142,10 +248,6 @@ PAGI includes a collection of middleware components in `PAGI::Middleware::*`:
 - And many more
 
 See `lib/PAGI/Middleware/` for the full list.
-
-## PAGI::Simple Framework
-
-For a higher-level Express/Sinatra-style framework, see [PAGI::Simple](https://github.com/jjn1056/PAGI-Simple) which is available as a separate distribution.
 
 ## Development
 

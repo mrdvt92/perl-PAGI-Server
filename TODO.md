@@ -29,6 +29,18 @@
 
 ## Future Ideas
 
+### API Consistency: on_close Callback Signatures
+
+Consider unifying `on_close` callback signatures for 1.0:
+
+- **Current:** WebSocket passes `($code, $reason)`, SSE passes `($sse)`
+- **Reason:** WebSocket has close protocol with codes; SSE has no close frame
+- **Options for 1.0:**
+  - Option B: Both pass `($self)` - users call `$ws->close_code` if needed
+  - Option C: Both pass `($self, $info)` where `$info` is `{code => ..., reason => ...}` for WS, `{}` for SSE
+
+Decision deferred to 1.0 to avoid breaking changes in beta.
+
 ### Worker Pool Enhancements
 
 Level 2 (Worker Service Scope) and Level 3 (Named Worker Pools) are documented
