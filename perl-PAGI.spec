@@ -1,6 +1,6 @@
 Name:           perl-PAGI
-Version:        0.001008
-Release:        3%{?dist}
+Version:        0.001011
+Release:        2%{?dist}
 Summary:        Perl Asynchronous Gateway Interface
 License:        GPL+ or Artistic
 Group:          Development/Libraries
@@ -8,8 +8,8 @@ URL:            http://search.cpan.org/dist/PAGI/
 Source0:        http://www.cpan.org/modules/by-module/PAGI/PAGI-%{version}.tar.gz
 BuildRoot:      %{_tmppath}/%{name}-%{version}-%{release}-root-%(%{__id_u} -n)
 BuildArch:      noarch
-Conflicts:      perl-PAGI-Server
-Obsoletes:      perl-PAGI-Server
+Conflicts:      perl-PAGI-Server < 0.001011
+Obsoletes:      perl-PAGI-Server < 0.001011
 BuildRequires:  perl >= 0:5.018
 BuildRequires:  perl(Cookie::Baker) >= 0.11
 BuildRequires:  perl(Cpanel::JSON::XS) >= 4.19
